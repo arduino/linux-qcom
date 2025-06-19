@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/pm_runtime.h>
+#include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -203,6 +204,51 @@ static int anx7625_read_ctrl_status_p0(struct anx7625_data *ctx)
 {
 	return anx7625_reg_read(ctx, ctx->i2c.rx_p0_client, AP_AUX_CTRL_STATUS);
 }
+
+static int anx7625_tcpci_regmap_read(void *context, unsigned int reg,
+					unsigned int *val)
+{
+	struct device *dev = context;
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct anx7625_data *ctx = i2c_get_clientdata(i2c);
+	int ret;
+
+	if (reg > 0xff)
+		return -EINVAL;
+
+	ret = anx7625_reg_read(ctx, i2c, reg);
+	if (ret < 0)
+		return ret;
+
+	*val = ret;
+
+	return 0;
+}
+
+static int anx7625_tcpci_regmap_write(void *context, unsigned int reg,
+					 unsigned int val)
+{
+	struct device *dev = context;
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct anx7625_data *ctx = i2c_get_clientdata(i2c);
+
+	if (val > 0xff || reg > 0xff)
+		return -EINVAL;
+
+	return anx7625_reg_write(ctx, i2c, reg, val);
+}
+
+static const struct regmap_bus anx7625_tcpci_regmap_bus = {
+	.reg_write = anx7625_tcpci_regmap_write,
+	.reg_read = anx7625_tcpci_regmap_read,
+};
+
+static const struct regmap_config anx7625_tcpci_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+
+	.max_register = 0xff,
+};
 
 static int wait_aux_op_finish(struct anx7625_data *ctx)
 {
@@ -1498,8 +1544,7 @@ static int _anx7625_hpd_polling(struct anx7625_data *ctx,
 	}
 
 	DRM_DEV_DEBUG_DRIVER(dev, "system status: 0x%x. HPD raise up.\n", val);
-	anx7625_reg_write(ctx, ctx->i2c.tcpc_client,
-			  INTR_ALERT_1, 0xFF);
+	regmap_write(ctx->tcpc_regmap, INTR_ALERT_1, 0xff);
 	anx7625_reg_write(ctx, ctx->i2c.rx_p0_client,
 			  INTERFACE_CHANGE_INT, 0);
 
@@ -1571,8 +1616,7 @@ static int anx7625_hpd_change_detect(struct anx7625_data *ctx)
 	int intr_vector, status;
 	struct device *dev = ctx->dev;
 
-	status = anx7625_reg_write(ctx, ctx->i2c.tcpc_client,
-				   INTR_ALERT_1, 0xFF);
+	status = regmap_write(ctx->tcpc_regmap, INTR_ALERT_1, 0xff);
 	if (status < 0) {
 		DRM_DEV_ERROR(dev, "cannot clear alert reg.\n");
 		return status;
@@ -2544,6 +2588,14 @@ static int anx7625_register_i2c_dummy_clients(struct anx7625_data *ctx,
 							 TCPC_INTERFACE_ADDR >> 1);
 	if (IS_ERR(ctx->i2c.tcpc_client))
 		return PTR_ERR(ctx->i2c.tcpc_client);
+
+	i2c_set_clientdata(ctx->i2c.tcpc_client, ctx);
+
+	ctx->tcpc_regmap = devm_regmap_init(dev, &anx7625_tcpci_regmap_bus,
+					    &ctx->i2c.tcpc_client->dev,
+					    &anx7625_tcpci_regmap_config);
+	if (IS_ERR(ctx->tcpc_regmap))
+		return PTR_ERR(ctx->tcpc_regmap);
 
 	return 0;
 }
