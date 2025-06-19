@@ -16,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/usb/tcpci.h>
 #include <linux/workqueue.h>
 
 #include <linux/of_graph.h>
@@ -1681,6 +1682,9 @@ static irqreturn_t anx7625_intr_hpd_isr(int irq, void *data)
 {
 	struct anx7625_data *ctx = (struct anx7625_data *)data;
 
+	if (IS_ENABLED(CONFIG_TYPEC_TCPCI) && ctx->tcpci)
+		tcpci_irq(ctx->tcpci);
+
 	queue_work(ctx->workqueue, &ctx->work);
 
 	return IRQ_HANDLED;
@@ -2669,6 +2673,77 @@ static int anx7625_link_bridge(struct drm_dp_aux *aux)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_TYPEC_TCPCI)
+static int anx7625_tcpci_init(struct tcpci *tcpci, struct tcpci_data *data)
+{
+	u16 val = 0;
+
+	return regmap_raw_write(data->regmap, TCPC_ALERT_MASK, &val,
+				sizeof(val));
+}
+
+static int anx7625_tcpci_set_vbus(struct tcpci *tcpci, struct tcpci_data *data,
+				  bool source, bool sink)
+{
+	struct anx7625_data *ctx = container_of(data, struct anx7625_data,
+						tcpci_data);
+	int ret;
+
+	ret = regulator_is_enabled(ctx->vbus);
+	if (ret < 0)
+		return ret;
+
+	if (ret && !source)
+		return regulator_disable(ctx->vbus);
+
+	if (!ret && source)
+		return regulator_enable(ctx->vbus);
+
+	return 0;
+}
+
+static int anx7625_tcpci_register(struct anx7625_data *ctx)
+{
+	struct fwnode_handle *fw;
+
+	fw = device_get_named_child_node(ctx->dev, "connector");
+	if (!fw)
+		return 0;
+
+	ctx->vbus = devm_of_regulator_get_optional(ctx->dev, to_of_node(fw),
+						   "vbus");
+	if (!IS_ERR(ctx->vbus))
+		ctx->tcpci_data.set_vbus = anx7625_tcpci_set_vbus;
+
+	fwnode_handle_put(fw);
+
+	if (ctx->pdata.low_power_mode) {
+		dev_err(ctx->dev, "TCPCI and power / reset GPIOs is not supported\n");
+		return -EINVAL;
+	}
+
+	ctx->tcpci_data.regmap = ctx->tcpc_regmap;
+	ctx->tcpci_data.init = anx7625_tcpci_init;
+
+	ctx->tcpci = tcpci_register_port(ctx->dev, &ctx->tcpci_data);
+	return PTR_ERR_OR_ZERO(ctx->tcpci);
+}
+
+static void anx7625_tcpci_unregister(struct anx7625_data *ctx)
+{
+	if (ctx->tcpci)
+		tcpci_unregister_port(ctx->tcpci);
+}
+#else
+static int anx7625_tcpci_register(struct anx7625_data *ctx)
+{
+	return 0;
+}
+static void anx7625_tcpci_unregister(struct anx7625_data *ctx)
+{
+}
+#endif
+
 static int anx7625_i2c_probe(struct i2c_client *client)
 {
 	struct anx7625_data *platform;
@@ -2798,6 +2873,11 @@ static int anx7625_i2c_probe(struct i2c_client *client)
 		_anx7625_hpd_polling(platform, 5000 * 100);
 	}
 
+	/* After getting runtime handle */
+	ret = anx7625_tcpci_register(platform);
+	if (ret)
+		return ret;
+
 	/* Add work function */
 	if (platform->pdata.intp_irq) {
 		enable_irq(platform->pdata.intp_irq);
@@ -2825,6 +2905,8 @@ free_hdcp_wq:
 static void anx7625_i2c_remove(struct i2c_client *client)
 {
 	struct anx7625_data *platform = i2c_get_clientdata(client);
+
+	anx7625_tcpci_unregister(platform);
 
 	drm_bridge_remove(&platform->bridge);
 

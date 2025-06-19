@@ -459,6 +459,9 @@ struct anx7625_data {
 	struct device *dev;
 	struct anx7625_i2c_client i2c;
 	struct regmap *tcpc_regmap;
+	struct tcpci *tcpci;
+	struct tcpci_data tcpci_data;
+	struct regulator *vbus;
 	struct i2c_client *last_client;
 	struct timer_list hdcp_timer;
 	const struct drm_edid *cached_drm_edid;
