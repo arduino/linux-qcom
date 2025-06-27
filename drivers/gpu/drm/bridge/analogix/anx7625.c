@@ -40,6 +40,16 @@
 
 #include "anx7625.h"
 
+#define DEBUG
+
+#ifdef DEBUG
+#ifdef DRM_DEV_DEBUG_DRIVER
+#undef DRM_DEV_DEBUG_DRIVER
+#define DRM_DEV_DEBUG_DRIVER(dev, fmt, ...) \
+dev_printk(KERN_ERR, dev, fmt, ##__VA_ARGS__)
+#endif
+#endif
+
 /*
  * There is a sync issue while access I2C register between AP(CPU) and
  * internal firmware(OCM), to avoid the race condition, AP should access
