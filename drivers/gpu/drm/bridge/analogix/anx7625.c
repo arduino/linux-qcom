@@ -2773,30 +2773,72 @@ static int anx7625_register_i2c_dummy_clients(struct anx7625_data *ctx,
 	if (IS_ERR(ctx->i2c.tx_p0_client))
 		return PTR_ERR(ctx->i2c.tx_p0_client);
 
+	i2c_set_clientdata(ctx->i2c.tx_p0_client, ctx);
+
+	devm_regmap_init(&ctx->i2c.tx_p0_client->dev,
+			 &anx7625_tcpci_regmap_bus,
+			 &ctx->i2c.tx_p0_client->dev,
+			 &anx7625_tcpci_regmap_config);
+
 	ctx->i2c.tx_p1_client = devm_i2c_new_dummy_device(dev, client->adapter,
 							  TX_P1_ADDR >> 1);
 	if (IS_ERR(ctx->i2c.tx_p1_client))
 		return PTR_ERR(ctx->i2c.tx_p1_client);
+
+	i2c_set_clientdata(ctx->i2c.tx_p1_client, ctx);
+
+	devm_regmap_init(&ctx->i2c.tx_p1_client->dev,
+			 &anx7625_tcpci_regmap_bus,
+			 &ctx->i2c.tx_p1_client->dev,
+			 &anx7625_tcpci_regmap_config);
 
 	ctx->i2c.tx_p2_client = devm_i2c_new_dummy_device(dev, client->adapter,
 							  TX_P2_ADDR >> 1);
 	if (IS_ERR(ctx->i2c.tx_p2_client))
 		return PTR_ERR(ctx->i2c.tx_p2_client);
 
+	i2c_set_clientdata(ctx->i2c.tx_p2_client, ctx);
+
+	devm_regmap_init(&ctx->i2c.tx_p2_client->dev,
+			 &anx7625_tcpci_regmap_bus,
+			 &ctx->i2c.tx_p2_client->dev,
+			 &anx7625_tcpci_regmap_config);
+
 	ctx->i2c.rx_p0_client = devm_i2c_new_dummy_device(dev, client->adapter,
 							  RX_P0_ADDR >> 1);
 	if (IS_ERR(ctx->i2c.rx_p0_client))
 		return PTR_ERR(ctx->i2c.rx_p0_client);
+
+	i2c_set_clientdata(ctx->i2c.rx_p0_client, ctx);
+
+	devm_regmap_init(&ctx->i2c.rx_p0_client->dev,
+			 &anx7625_tcpci_regmap_bus,
+			 &ctx->i2c.rx_p0_client->dev,
+			 &anx7625_tcpci_regmap_config);
 
 	ctx->i2c.rx_p1_client = devm_i2c_new_dummy_device(dev, client->adapter,
 							  RX_P1_ADDR >> 1);
 	if (IS_ERR(ctx->i2c.rx_p1_client))
 		return PTR_ERR(ctx->i2c.rx_p1_client);
 
+	i2c_set_clientdata(ctx->i2c.rx_p1_client, ctx);
+
+	devm_regmap_init(&ctx->i2c.rx_p1_client->dev,
+			 &anx7625_tcpci_regmap_bus,
+			 &ctx->i2c.rx_p1_client->dev,
+			 &anx7625_tcpci_regmap_config);
+
 	ctx->i2c.rx_p2_client = devm_i2c_new_dummy_device(dev, client->adapter,
 							  RX_P2_ADDR >> 1);
 	if (IS_ERR(ctx->i2c.rx_p2_client))
 		return PTR_ERR(ctx->i2c.rx_p2_client);
+
+	i2c_set_clientdata(ctx->i2c.rx_p2_client, ctx);
+
+	devm_regmap_init(&ctx->i2c.rx_p2_client->dev,
+			 &anx7625_tcpci_regmap_bus,
+			 &ctx->i2c.rx_p2_client->dev,
+			 &anx7625_tcpci_regmap_config);
 
 	ctx->i2c.tcpc_client = devm_i2c_new_dummy_device(dev, client->adapter,
 							 TCPC_INTERFACE_ADDR >> 1);
