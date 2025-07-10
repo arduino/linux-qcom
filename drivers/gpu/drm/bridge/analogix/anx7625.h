@@ -510,6 +510,7 @@ struct anx7625_data {
 	struct mipi_dsi_device *dsi;
 	struct drm_dp_aux aux;
 	struct fw_msg send_msg;
+	bool display;
 };
 
 #endif  /* __ANX7625_H__ */

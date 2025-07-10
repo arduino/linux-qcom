@@ -1867,6 +1867,9 @@ static void anx7625_work_func(struct work_struct *work)
 	struct anx7625_data *ctx = container_of(work,
 						struct anx7625_data, work);
 
+	if (!ctx->display)
+		return;
+
 	mutex_lock(&ctx->lock);
 
 	if (pm_runtime_suspended(ctx->dev)) {
@@ -2994,6 +2997,7 @@ static int anx7625_i2c_probe(struct i2c_client *client)
 		}
 	}
 
+	platform->display = true;
 	platform->aux.name = "anx7625-aux";
 	platform->aux.dev = dev;
 	platform->aux.transfer = anx7625_aux_transfer;
@@ -3001,13 +3005,16 @@ static int anx7625_i2c_probe(struct i2c_client *client)
 	drm_dp_aux_init(&platform->aux);
 
 	ret = anx7625_parse_dt(dev, pdata);
-	if (ret) {
+	if (ret == -ENODEV) {
+		/* Not using the display function, but we want USB-C function */
+		platform->display = false;
+	} else if (ret) {
 		if (ret != -EPROBE_DEFER)
 			DRM_DEV_ERROR(dev, "fail to parse DT : %d\n", ret);
 		goto free_wq;
 	}
 
-	if (!platform->pdata.is_dpi) {
+	if (platform->display && !platform->pdata.is_dpi) {
 		ret = anx7625_setup_dsi_device(platform);
 		if (ret < 0)
 			goto free_wq;
@@ -3036,7 +3043,8 @@ static int anx7625_i2c_probe(struct i2c_client *client)
 	 * be done after calls that might return EPROBE_DEFER, otherwise we can
 	 * get an infinite loop.
 	 */
-	ret = devm_of_dp_aux_populate_bus(&platform->aux, anx7625_link_bridge);
+	if (platform->display)
+		ret = devm_of_dp_aux_populate_bus(&platform->aux, anx7625_link_bridge);
 	if (ret) {
 		if (ret != -ENODEV) {
 			DRM_DEV_ERROR(dev, "failed to populate aux bus : %d\n", ret);
@@ -3101,7 +3109,8 @@ static void anx7625_i2c_remove(struct i2c_client *client)
 
 	anx7625_typec_unregister(platform);
 
-	drm_bridge_remove(&platform->bridge);
+	if (platform->display)
+		drm_bridge_remove(&platform->bridge);
 
 	if (platform->pdata.intp_irq)
 		destroy_workqueue(platform->workqueue);
