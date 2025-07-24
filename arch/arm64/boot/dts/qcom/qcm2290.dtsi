@@ -687,6 +687,41 @@
 			#gpio-cells = <2>;
 			gpio-ranges = <&lpass_tlmm 0 0 19>;
 
+			lpi_i2s2_active: lpi-i2s2-active-state {
+				sck-pins {
+					pins = "gpio10";
+					function = "i2s2_clk";
+					bias-disable;
+					drive-strength = <8>;
+					output-high;
+				};
+
+				ws-pins {
+					pins = "gpio11";
+					function = "i2s2_ws";
+					bias-disable;
+					drive-strength = <8>;
+					output-high;
+				};
+
+				data-pins {
+					pins = "gpio12";
+					function = "i2s2_data";
+					bias-disable;
+					drive-strength = <8>;
+					output-high;
+				};
+
+				/* FIXME: move to separate group, also board-specific, so move to qrb2210 */
+				wsa-mclk-pins {
+					pins = "gpio18";
+					function = "wsa_mclk";
+					bias-disable;
+					drive-strength = <16>;
+					output-high;
+				};
+			};
+
 			lpass_tx_swr_active: lpass-tx-swr-active-state {
 				clk-pins {
 					pins = "gpio0";
@@ -2367,6 +2402,10 @@
 
 							dai@2 {
 								reg = <MSM_FRONTEND_DAI_MULTIMEDIA3>;
+							};
+
+							dai@3 {
+								reg = <MSM_FRONTEND_DAI_MULTIMEDIA4>;
 							};
 						};
 					};

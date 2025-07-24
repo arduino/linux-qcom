@@ -133,6 +133,20 @@ qrb2210-rb1-vision-mezzanine-dtbs	:= qrb2210-rb1.dtb qrb2210-rb1-vision-mezzanin
 
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-rb1-vision-mezzanine.dtb
 
+dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola.dtb
+
+qrb2210-arduino-imola-gigadisplay-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-gigadisplay.dtbo
+
+dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-gigadisplay.dtb
+
+qrb2210-arduino-imola-camera-rpiv2-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-camera-rpiv2.dtbo
+
+dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-camera-rpiv2.dtb
+
+qrb2210-arduino-imola-odd-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-odd.dtbo
+
+dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-odd.dtb
+
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb4210-rb2.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb5165-rb5.dtb
 

@@ -1,0 +1,805 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright (c) 2025, Arduino SA
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/leds/common.h>
+#include "qcm2290.dtsi"
+#include "pm4125.dtsi"
+#include "qrb2210-arduino.dtsi"
+
+/ {
+	model = "Arduino SA,Imola";
+	compatible = "arduino,imola", "qcom,qcm2290", "qcom,qrb2210";
+
+	aliases {
+		serial0 = &uart4;
+		serial1 = &uart2;
+		serial2 = &uart3;
+		sdhc1 = &sdhc_1;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	clocks: clocks {
+		clk40m: can-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			#clock-cells = <0>;
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-0 = <&key_volp_n>, <&key_vold_n>;
+		pinctrl-names = "default";
+
+		key-volume-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&tlmm 96 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			wakeup-source;
+		};
+
+		key-volume-down {
+			label = "Volume Down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&tlmm 36 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			wakeup-source;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led-bt {
+			label = "blue:bt";
+			function = LED_FUNCTION_BLUETOOTH;
+			color = <LED_COLOR_ID_BLUE>;
+			gpios = <&tlmm 47 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "bluetooth-power";
+			default-state = "off";
+		};
+
+		led-panic {
+			label = "red:panic";
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
+			gpios = <&tlmm 39 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "none";
+			default-state = "off";
+			panic-indicator;
+		};
+
+		led-wlan {
+			label = "green:wlan";
+			function = LED_FUNCTION_WLAN;
+			color = <LED_COLOR_ID_GREEN>;
+			gpios = <&tlmm 40 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "phy0tx";
+			default-state = "off";
+		};
+
+		led-user-blue {
+			label = "blue:user";
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_BLUE>;
+			gpios = <&tlmm 60 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led-user-green {
+			label = "green:user";
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_GREEN>;
+			gpios = <&tlmm 42 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+		led-user-red {
+			label = "red:user";
+			function = LED_FUNCTION_INDICATOR;
+			color = <LED_COLOR_ID_RED>;
+			gpios = <&tlmm 41 GPIO_ACTIVE_HIGH>;
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+
+
+	};
+
+	/* PM2250 charger out, supplied by VBAT */
+	vph_pwr: regulator-vph-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "vph_pwr";
+		regulator-min-microvolt = <3700000>;
+		regulator-max-microvolt = <3700000>;
+
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	anx_30: anx-30 {
+		/* ANX7625 VDD3 */
+		compatible = "regulator-fixed";
+		regulator-name = "anx30";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	sound {
+		compatible = "qcom,qrb2210-rb1-sndcard", "qcom,qrb4210-rb2-sndcard";
+		model = "Arduino-Imola-HPH-LOUT";
+		pinctrl-0 = <&lpi_i2s2_active>;
+		pinctrl-names = "default";
+		audio-routing =	"IN1_HPHL", "HPHL_OUT",
+				"IN2_HPHR", "HPHR_OUT",
+				"AMIC2", "MIC BIAS2";
+
+		mm1-dai-link {
+			link-name = "MultiMedia1";
+
+			cpu {
+				sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+			};
+		};
+
+		mm2-dai-link {
+			link-name = "MultiMedia2";
+
+			cpu {
+				sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA2>;
+			};
+		};
+
+		mm3-dai-link {
+			link-name = "MultiMedia3";
+
+			cpu {
+				sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA3>;
+			};
+		};
+
+		mm4-dai-link {
+			link-name = "MultiMedia4";
+
+			cpu {
+				sound-dai = <&q6asmdai  MSM_FRONTEND_DAI_MULTIMEDIA4>;
+			};
+		};
+
+		hph-playback-dai-link {
+			link-name = "HPH Playback";
+			cpu {
+				sound-dai = <&q6afedai RX_CODEC_DMA_RX_0>;
+			};
+
+			platform {
+				sound-dai = <&q6routing>;
+			};
+
+			codec {
+				sound-dai = <&pmic4125_codec 0>, <&swr1 0>, <&rxmacro 0>;
+			};
+		};
+
+		lo-playback-dai-link {
+			link-name = "LO Playback";
+			cpu {
+				sound-dai = <&q6afedai RX_CODEC_DMA_RX_0>;
+			};
+
+			platform {
+				sound-dai = <&q6routing>;
+			};
+
+			codec {
+				sound-dai = <&pmic4125_codec 0>, <&swr1 0>, <&rxmacro 0>;
+			};
+		};
+
+		hph-capture-dai-link {
+			link-name = "HP Capture";
+			cpu {
+				sound-dai = <&q6afedai TX_CODEC_DMA_TX_3>;
+			};
+
+			platform {
+				sound-dai = <&q6routing>;
+			};
+
+			codec {
+				sound-dai = <&pmic4125_codec 1>, <&swr0 0>, <&txmacro 0>;
+			};
+		};
+
+		hdmi-i2s-dai-link {
+			link-name = "HDMI/I2S Playback";
+
+			cpu {
+				sound-dai = <&q6afedai SECONDARY_MI2S_RX>;
+			};
+
+			platform {
+				sound-dai = <&q6routing>;
+			};
+
+			codec {
+				sound-dai = <&anx7625 0>;
+			};
+		};
+
+	};
+};
+
+/delete-node/ &cont_splash_memory;
+
+&cpu_pd0 {
+	/delete-property/ power-domains;
+};
+
+&cpu_pd1 {
+	/delete-property/ power-domains;
+};
+
+&cpu_pd2 {
+	/delete-property/ power-domains;
+};
+
+&cpu_pd3 {
+	/delete-property/ power-domains;
+};
+
+/delete-node/ &cluster_pd;
+
+&gpi_dma0 {
+	status = "okay";
+};
+
+&gpu {
+	status = "okay";
+
+	zap-shader {
+		firmware-name = "qcom/qcm2290/a702_zap.mbn";
+	};
+};
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	vdda-supply = <&pm4125_l5>;
+	status = "okay";
+};
+
+&mdss_dsi0_phy {
+	status = "okay";
+};
+
+&pm4125_vbus {
+	regulator-min-microamp = <500000>;
+	regulator-max-microamp = <500000>;
+	status = "okay";
+};
+
+&q6afedai {
+	dai@18 {
+		reg = <SECONDARY_MI2S_RX>;
+		qcom,sd-lines = <0>;
+	};
+};
+
+&qupv3_id_0 {
+	status = "okay";
+};
+
+&remoteproc_adsp {
+	firmware-name = "qcom/qcm2290/adsp.mbn";
+	status = "okay";
+};
+
+&remoteproc_mpss {
+	firmware-name = "qcom/qcm2290/modem.mbn";
+	status = "okay";
+};
+
+&rpm_requests {
+	regulators {
+		compatible = "qcom,rpm-pm2250-regulators";
+		vdd_s3-supply = <&vph_pwr>;
+		vdd_s4-supply = <&vph_pwr>;
+		vdd_l1_l2_l3_l5_l6_l7_l8_l9_l10_l11_l12-supply = <&pm4125_s3>;
+		vdd_l4_l17_l18_l19_l20_l21_l22-supply = <&vph_pwr>;
+		vdd_l13_l14_l15_l16-supply = <&pm4125_s4>;
+
+		/*
+		 * S1 - VDD_APC
+		 * S2 - VDD_CX
+		 */
+
+		pm4125_s3: s3 {
+			/* 0.4V-1.6625V -> 1.3V (Power tree requirements) */
+			regulator-min-microvolt = <1352000>;
+			regulator-max-microvolt = <1352000>;
+			regulator-boot-on;
+		};
+
+		pm4125_s4: s4 {
+			/* 1.2V-2.35V -> 2.05V (Power tree requirements) */
+			regulator-min-microvolt = <2072000>;
+			regulator-max-microvolt = <2072000>;
+			regulator-boot-on;
+		};
+
+		/* L1 - VDD_MX */
+
+		pm4125_l2: l2 { //OK
+			/* LPDDR4X VDD2 */
+			regulator-min-microvolt = <1136000>;
+			regulator-max-microvolt = <1136000>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		pm4125_l3: l3 { //OK
+			/* LPDDR4X VDDQ */
+			regulator-min-microvolt = <616000>;
+			regulator-max-microvolt = <616000>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		pm4125_l4: l4 {//KO
+			/* max = 3.05V -> max = 2.7 to disable 3V signaling (SDHCI2) */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2700000>;
+			regulator-allow-set-load;
+		};
+
+		pm4125_l5: l5 { //KO
+			/* CSI/DSI */
+			regulator-min-microvolt = <1232000>;
+			regulator-max-microvolt = <1232000>;
+			regulator-allow-set-load;
+			regulator-boot-on;
+		};
+
+		pm4125_l6: l6 { //KO
+			/* DRAM PLL */
+			regulator-min-microvolt = <928000>;
+			regulator-max-microvolt = <928000>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		pm4125_l7: l7 { //KO
+			/* Wi-Fi CX/MX */
+			regulator-min-microvolt = <664000>;
+			regulator-max-microvolt = <664000>;
+		};
+
+		/*
+		 * L8 - VDD_LPI_CX
+		 * L9 - VDD_LPI_MX
+		 */
+
+		pm4125_l10: l10 {
+			/* Wi-Fi RFA */
+			regulator-min-microvolt = <1304000>;
+			regulator-max-microvolt = <1304000>;
+		};
+
+		pm4125_l11: l11 {
+			/* GPS RF1 */
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			regulator-boot-on;
+			regulator-always-on;
+		};
+
+		pm4125_l12: l12 {
+			/* USB PHYs */
+			regulator-min-microvolt = <928000>;
+			regulator-max-microvolt = <928000>;
+			regulator-allow-set-load;
+			regulator-boot-on;
+		};
+
+		pm4125_l13: l13 {
+			/* USB/QFPROM/PLLs */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-allow-set-load;
+			regulator-boot-on;
+		};
+
+		pm4125_l14: l14 {
+			/* SDHCI1 VQMMC */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-allow-set-load;
+			/* Broken hardware, never turn it off! */
+			regulator-always-on;
+		};
+
+		pm4125_l15: l15 {
+			/* WCD/DSI/BT VDDIO */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-allow-set-load;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		pm4125_l16: l16 {
+			/* GPS RF2 */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-boot-on;
+		};
+
+		pm4125_l17: l17 {
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3000000>;
+		};
+
+		pm4125_l18: l18 {
+			/* VDD_PXn */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		pm4125_l19: l19 {
+			/* VDD_PXn */
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		pm4125_l20: l20 {
+			/* SDHCI1 VMMC */
+			regulator-min-microvolt = <2400000>;
+			regulator-max-microvolt = <3600000>;
+			regulator-allow-set-load;
+		};
+
+		pm4125_l21: l21 {
+			/* SDHCI2 VMMC */
+			regulator-min-microvolt = <2960000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-allow-set-load;
+			regulator-boot-on;
+		};
+
+		pm4125_l22: l22 {
+			/* Wi-Fi */
+			regulator-min-microvolt = <3312000>;
+			regulator-max-microvolt = <3312000>;
+		};
+	};
+};
+
+&sdhc_1 {
+	vmmc-supply = <&pm4125_l20>;
+	vqmmc-supply = <&pm4125_l14>;
+	pinctrl-0 = <&sdc1_state_on>;
+	pinctrl-1 = <&sdc1_state_off>;
+	pinctrl-names = "default", "sleep";
+	mmc-hs400-1_8v;
+	mmc-hs200-1_8v;
+	non-removable;
+	supports-cqe;
+	no-sdio;
+	no-sd;
+	status = "okay";
+};
+
+&tlmm {
+	jmisc_gpio28: jmisc-gpio28-state {
+		pins = "gpio28";
+		function = "gpio";
+	};
+
+	mcu_swdio: mcu-swdio-state {
+		pins = "gpio25";
+		function = "gpio";
+	};
+
+	mcu_swclk: mcu-swclk-state {
+		pins = "gpio26";
+		function = "gpio";
+	};
+
+	mcu_boot0: mcu-boot0-state {
+		pins = "gpio37";
+		function = "gpio";
+		bias-pull-up;
+	};
+
+	mcu_nrst: mcu-nrst-state {
+		pins = "gpio38";
+		function = "gpio";
+		bias-pull-up;
+	};
+
+	mcu_spi_rdy: mcu-spi-rdy-state {
+		pins = "gpio70";
+		function = "gpio";
+		bias-pull-up;
+		output-disable;
+	};
+
+	key_volp_n: key-volp-n-state {
+		pins = "gpio96";
+		function = "gpio";
+		bias-pull-up;
+		output-disable;
+	};
+
+	key_vold_n: key-vold-n-state {
+		pins = "gpio36";
+		function = "gpio";
+		bias-pull-up;
+		output-disable;
+	};
+
+	spidev_gpio37: spidev-gpio37 {
+		pins = "gpio37";
+		function = "gpio";
+		drive-strength = <16>;
+	};
+
+	anx7625_int_pin: anx7625-int-pins-state {
+		pins = "gpio81";
+		function = "gpio";
+		drive-strength = <16>;
+		output-disable;
+		bias-pull-up;
+	};
+
+	anx7625_cable_det_pin: anx7625-cable-det-pins-state {
+		pins = "gpio46";
+		function = "gpio";
+		drive-strength = <16>;
+		output-disable;
+		bias-pull-up;
+	};
+};
+
+&scm {
+	qcom,dload-mode = <&tcsr_regs 0x13000>;
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <100000>;
+	/delete-property/ dmas;
+};
+
+&uart2 {
+	status = "okay";
+};
+
+// BT UART
+&uart3 {
+	status = "okay";
+
+	bluetooth {
+		compatible = "qcom,wcn3988-bt";
+
+		vddio-supply = <&pm4125_l15>;
+		vddxo-supply = <&pm4125_l13>;
+		vddrf-supply = <&pm4125_l10>;
+		vddch0-supply = <&pm4125_l22>;
+		enable-gpios = <&tlmm 87 GPIO_ACTIVE_HIGH>;
+		max-speed = <3000000>;
+	};
+};
+
+/* UART connected to JCTL */
+&uart4 {
+	compatible = "qcom,geni-debug-uart";
+	status = "okay";
+};
+
+&spi5 {
+	status = "okay";
+	/delete-property/ dmas;
+
+	spidev@0 {
+		reg = <0>;
+		compatible = "cisco,spi-petra";
+		status = "okay";
+	};
+};
+
+&usb {
+	status = "okay";
+};
+
+&wifi {
+	vdd-0.8-cx-mx-supply = <&pm4125_l7>;
+	vdd-1.8-xo-supply = <&pm4125_l13>;
+	vdd-1.3-rfa-supply = <&pm4125_l10>;
+	vdd-3.3-ch0-supply = <&pm4125_l22>;
+	qcom,ath10k-calibration-variant = "Thundercomm_RB1";
+	firmware-name = "qcm2290";
+	status = "okay";
+};
+
+&xo_board {
+	clock-frequency = <38400000>;
+};
+
+&usb_dwc3_hs {
+	remote-endpoint = <&anx_hs_in>;
+};
+
+&usb_hsphy {
+	vdd-supply = <&pm4125_l12>;
+	vdda-pll-supply = <&pm4125_l13>;
+	vdda-phy-dpdm-supply = <&pm4125_l21>;
+	status = "okay";
+};
+
+&usb_qmpphy {
+	vdda-phy-supply = <&pm4125_l12>;
+	vdda-pll-supply = <&pm4125_l13>;
+	status = "okay";
+};
+
+&usb_qmpphy_out {
+	remote-endpoint = <&anx_ss_in>;
+};
+
+&mdss_dsi0_out {
+	remote-endpoint = <&anx_dsi0_in>;
+	data-lanes = <0 1 2 3>;
+};
+
+&spi5 {
+	status = "okay";
+	/delete-property/ dmas;
+
+	spidev@0 {
+		reg = <0>;
+		compatible = "cisco,spi-petra";
+		status = "okay";
+
+		pinctrl-0 = <&spidev_gpio37>;
+	};
+};
+
+&spmi_bus {
+	pmic@0 {
+		pmic4125_codec: codec {
+			compatible = "qcom,pm4125-codec";
+			vdd-io-supply = <&pm4125_l15>;
+			vdd-cp-supply = <&pm4125_s4>;
+			vdd-pa-vpos-supply = <&pm4125_s4>;
+
+			vdd-mic-bias-supply = <&pm4125_l22>;
+			qcom,micbias1-microvolt = <1800000>;
+			qcom,micbias2-microvolt = <1800000>;
+			qcom,micbias3-microvolt = <1800000>;
+			/* qcom,mbhc-buttons-vthreshold-microvolt = <75000 150000 237000 500000 500000 500000 500000 500000>; */
+
+			qcom,rx-device = <&pm4125_rx>;
+			qcom,tx-device = <&pm4125_tx>;
+			#sound-dai-cells = <1>;
+		};
+	};
+};
+
+
+&swr0 {
+	pinctrl-0 = <&lpass_tx_swr_active>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	pm4125_tx: codec@0,3 {
+		compatible = "sdw20217010c00";
+		reg = <0 3>;
+		qcom,tx-port-mapping = <1 1 2 3>;
+	};
+};
+
+&swr1 {
+	pinctrl-0 = <&lpass_rx_swr_active>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	pm4125_rx: codec@0,4 {
+		compatible = "sdw20217010c00";
+		reg = <0 4>;
+		qcom,rx-port-mapping = <1 2 3 4 5>;
+	};
+};
+
+#include <dt-bindings/usb/pd.h>
+
+&i2c1 {
+	status = "okay";
+	clock-frequency = <100000>;
+	/delete-property/ dmas;
+
+	anx7625: encoder@58 {
+		compatible = "analogix,anx7625";
+		reg = <0x58>;
+		/* We don't want Low Power Mode for now
+		 * enable-gpios = <&tlmm 45 GPIO_ACTIVE_HIGH>;
+		 * reset-gpios = <&tlmm 44 GPIO_ACTIVE_HIGH>;
+		*/
+		interrupts-extended = <&tlmm 81 IRQ_TYPE_EDGE_FALLING>;
+		vdd10-supply = <&pm4125_l11>;
+		vdd18-supply = <&pm4125_l15>;
+		vdd33-supply = <&anx_30>;
+		analogix,audio-enable;
+		analogix,usbc-pd-enable;
+		analogix,lane0-swing = /bits/ 8 <0x14 0x54 0x64 0x74>;
+		analogix,lane1-swing = /bits/ 8 <0x14 0x54 0x64 0x74>;
+		#sound-dai-cells = <1>;
+
+		pinctrl-0 = <&anx7625_int_pin>, <&anx7625_cable_det_pin>;
+
+		status = "okay";
+
+		connector {
+			compatible = "usb-c-connector";
+			power-role = "sink";
+			data-role = "dual";
+			try-power-role = "sink";
+
+			pd-revision = /bits/ 8 <0x03 0x00 0x00 0x00>;
+			op-sink-microwatt = <15000000>;
+			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM) PDO_VAR(5000, 20000, 3000)>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					anx_hs_in: endpoint {
+						remote-endpoint = <&usb_dwc3_hs>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					anx_ss_in: endpoint {
+						remote-endpoint = <&usb_qmpphy_out>;
+					};
+				};
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				anx_dsi0_in: endpoint {
+					remote-endpoint = <&mdss_dsi0_out>;
+					data-lanes = <0 1 2 3>;
+				};
+			};
+		};
+	};
+};

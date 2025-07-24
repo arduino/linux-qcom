@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright (c) 2025, Arduino SA
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#define CSI0
+#undef CSI1
+
+&{/} {
+	cam0_pwr: cam0-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0-pwr ";
+		gpio = <&pca9555 0 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <100000>;
+		enable-active-high;
+	};
+};
+
+&clocks {
+	cam24m: cam-clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "cam24m";
+	};
+};
+
+&cci {
+	status= "okay";
+};
+
+&camss {
+       status = "okay";
+
+       vdda-csiphy-1p2-supply = <&pm4125_l5>;
+       vdda-pll-1p8-supply = <&pm4125_l13>;
+
+	/* Add PLL reg */
+
+	ports {
+#ifdef CSI0
+		port@0 {
+			csiphy0_ep: endpoint {
+				data-lanes = <0 1>;
+				remote-endpoint = <&imx219_0_ep>;
+			};
+		};
+#endif
+#ifdef CSI1
+		port@1 {
+			csiphy1_ep: endpoint {
+				data-lanes = <0 1>;
+				remote-endpoint = <&imx219_1_ep>;
+			};
+		};
+#endif
+	};
+};
+
+#ifdef CSI0
+&cci_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	sensor@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+		clocks = <&cam24m>;
+
+		VDIG-supply = <&cam0_pwr>;
+		VANA-supply = <&cam0_pwr>;
+		VDDL-supply = <&cam0_pwr>;
+
+		port {
+			/* MIPI CSI-2 bus endpoint */
+			imx219_0_ep: endpoint {
+				remote-endpoint = <&csiphy0_ep>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <456000000>;
+			};
+		};
+	};
+
+	pca9555: gpio@26 {
+		compatible = "nxp,pca9555";
+		reg = <0x26>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+#endif
+
+#ifdef CSI1
+&cci_i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	sensor@10 {
+                compatible = "sony,imx219";
+                reg = <0x10>;
+                clocks = <&cam24m>;
+
+		status = "okay";
+
+                port {
+                        /* MIPI CSI-2 bus endpoint */
+                        imx219_1_ep: endpoint {
+                                remote-endpoint = <&csiphy1_ep>;
+                                clock-lanes = <0>;
+                                data-lanes = <1 2>;
+                                link-frequencies = /bits/ 64 <456000000>;
+                        };
+                };
+        };
+};
+#endif
