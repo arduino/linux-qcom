@@ -1096,9 +1096,9 @@ static const struct snd_kcontrol_new pm4125_snd_controls[] = {
 		       line_gain),
 	SOC_SINGLE_TLV("HPHR Volume", PM4125_ANA_HPHPA_R_GAIN, 0, 20, 1,
 		       line_gain),
-	SOC_SINGLE_TLV("ADC1 Volume", PM4125_ANA_TX_AMIC1, 0, 8, 0,
+	SOC_SINGLE_TLV("ADC1 Volume", PM4125_ANA_TX_AMIC1, 0, 7, 0,
 		       analog_gain),
-	SOC_SINGLE_TLV("ADC2 Volume", PM4125_ANA_TX_AMIC2, 0, 8, 0,
+	SOC_SINGLE_TLV("ADC2 Volume", PM4125_ANA_TX_AMIC2, 0, 7, 0,
 		       analog_gain),
 
 	SOC_SINGLE_EXT("HPHL Switch", PM4125_HPH_L, 0, 1, 0,
