@@ -82,6 +82,10 @@ properties:
     type: boolean
     description: let the driver enable audio HDMI codec function or not.
 
+  analogix,usbc-pd-enable:
+    type: boolean
+    description: let the driver enable USB-C Power Delivery function or not.
+
   aux-bus:
     $ref: /schemas/display/dp-aux-bus.yaml#
 

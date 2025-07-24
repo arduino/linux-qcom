@@ -1416,7 +1416,9 @@ static int anx7625_ocm_loading_check(struct anx7625_data *ctx)
 	if ((ret & FLASH_LOAD_STA_CHK) != FLASH_LOAD_STA_CHK)
 		return -ENODEV;
 
-	anx7625_disable_pd_protocol(ctx);
+	if (!ctx->pdata.usbc_pd_enable) {
+		anx7625_disable_pd_protocol(ctx);
+	}
 
 	DRM_DEV_DEBUG_DRIVER(dev, "Firmware ver %02x%02x,",
 			     anx7625_reg_read(ctx,
@@ -1752,6 +1754,9 @@ static int anx7625_parse_dt(struct device *dev,
 
 	if (of_property_read_bool(np, "analogix,audio-enable"))
 		pdata->audio_en = 1;
+
+	if (of_property_read_bool(np, "analogix,usbc-pd-enable"))
+		pdata->usbc_pd_enable = 1;
 
 	return 0;
 }
@@ -2920,7 +2925,9 @@ static int anx7625_i2c_probe(struct i2c_client *client)
 	}
 
 	if (!platform->pdata.low_power_mode) {
-		anx7625_disable_pd_protocol(platform);
+		if (!pdata->usbc_pd_enable) {
+			anx7625_disable_pd_protocol(platform);
+		}
 		pm_runtime_get_sync(dev);
 		_anx7625_hpd_polling(platform, 5000 * 100);
 	}

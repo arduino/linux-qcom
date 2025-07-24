@@ -429,6 +429,7 @@ struct anx7625_platform_data {
 	int is_dpi;
 	int mipi_lanes;
 	int audio_en;
+	int usbc_pd_enable;
 	int dp_lane0_swing_reg_cnt;
 	u8 lane0_reg_data[DP_TX_SWING_REG_CNT];
 	int dp_lane1_swing_reg_cnt;
