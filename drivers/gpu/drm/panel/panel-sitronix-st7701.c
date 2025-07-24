@@ -520,6 +520,31 @@ static void rg28xx_gip_sequence(struct st7701 *st7701)
 	st7701_switch_cmd_bkx(st7701, false, 0);
 }
 
+static void arduino_giga_display_gip_sequence(struct st7701 *st7701)
+{
+	/**
+	 * ST7701_SPEC_V1.2 is unable to provide enough information above this
+	 * specific command sequence, so grab the same from vendor BSP driver.
+	 */
+	ST7701_WRITE(st7701, 0xE0, 0x00, 0x00, 0x02);
+	ST7701_WRITE(st7701, 0xE1, 0x08, 0x00, 0x0A, 0x00, 0x07, 0x00, 0x09,
+		0x00, 0x00, 0x33, 0x33);
+	ST7701_WRITE(st7701, 0xE2, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
+	ST7701_WRITE(st7701, 0xE3, 0x00, 0x00, 0x33, 0x33);
+	ST7701_WRITE(st7701, 0xE4, 0x44, 0x44);
+	ST7701_WRITE(st7701, 0xE5, 0x0E, 0x60, 0xA0, 0xa0, 0x10, 0x60, 0xA0,
+			0xA0, 0x0A, 0x60, 0xA0, 0xA0, 0x0C, 0x60, 0xA0, 0xA0);
+	ST7701_WRITE(st7701, 0xE6, 0x00, 0x00, 0x33, 0x33);
+	ST7701_WRITE(st7701, 0xE7, 0x44, 0x44);
+	ST7701_WRITE(st7701, 0xE8, 0x0D, 0x60, 0xA0, 0xA0, 0x0F, 0x60, 0xA0,
+			0xA0, 0x09, 0x60, 0xA0, 0xA0, 0x0B, 0x60, 0xA0, 0xA0);
+	ST7701_WRITE(st7701, 0xEB, 0x02, 0x01, 0xE4, 0xE4, 0x44, 0x00, 0x40);
+	ST7701_WRITE(st7701, 0xEC, 0x02, 0x01);
+	ST7701_WRITE(st7701, 0xED, 0xAB, 0x89, 0x76, 0x54, 0x01, 0xFF, 0xFF,
+			0xFF, 0xFF, 0xFF, 0xFF, 0x10, 0x45, 0x67, 0x98, 0xBA);
+}
+
 static int st7701_prepare(struct drm_panel *panel)
 {
 	struct st7701 *st7701 = panel_to_st7701(panel);
@@ -635,6 +660,53 @@ static const struct drm_panel_funcs st7701_funcs = {
 	.enable		= st7701_enable,
 	.get_modes	= st7701_get_modes,
 	.get_orientation = st7701_get_orientation,
+};
+
+static const struct drm_display_mode arduino_giga_display_mode = {
+	.clock		  = 27500,
+
+	.hdisplay	  = 480,
+	.hsync_start  = 400 + 100,
+	.hsync_end	  = 400 + 100 + 100,
+	.htotal		  = 400 + 100 + 100 + 40,
+
+	.vdisplay	  = 800,
+	.vsync_start  = 800 + 2,
+	.vsync_end	  = 800 + 2 + 8,
+	.vtotal		  = 800 + 2 + 8 + 17,
+
+	.width_mm	  = 69,
+	.height_mm	  = 139,
+
+	.type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED,
+};
+
+static const struct st7701_panel_desc arduino_giga_display_desc = {
+	.mode = &arduino_giga_display_mode,
+	.lanes = 2,
+	.format = MIPI_DSI_FMT_RGB888,
+	.panel_sleep_delay = 80, /* panel need extra 80ms for sleep out cmd */
+
+	.pv_gamma = {0x40, 0xc9, 0x91, 0x0d, 0x12, 0x07, 0x02, 0x09, 0x09,
+				0x1f, 0x04, 0x50, 0x0f, 0xe4, 0x29, 0xdf},
+
+	.nv_gamma = {0x40, 0xcb, 0xd0, 0x11, 0x92, 0x07, 0x00, 0x08, 0x07,
+				0x1c, 0x06, 0x53, 0x12, 0x63, 0xeb, 0xdf},
+
+	.nlinv = 1,
+	.vop_uv = 4800000,
+	.vcom_uv = 750000,
+	.vgh_mv = 15000,
+	.vgl_mv = -10170,
+	.avdd_mv = 6600,
+	.avcl_mv = -4400,
+	.gamma_op_bias = OP_BIAS_MIDDLE,
+	.input_op_bias = OP_BIAS_MIN,
+	.output_op_bias = OP_BIAS_MIN,
+	.t2d_ns = 1600,
+	.t3d_ns = 10400,
+	.eot_en = true,
+	.gip_sequence = arduino_giga_display_gip_sequence,
 };
 
 static const struct drm_display_mode ts8550b_mode = {
@@ -1265,7 +1337,8 @@ static const struct of_device_id st7701_dsi_of_match[] = {
 	{ .compatible = "densitron,dmt028vghmcmi-1a", .data = &dmt028vghmcmi_1a_desc },
 	{ .compatible = "elida,kd50t048a", .data = &kd50t048a_desc },
 	{ .compatible = "techstar,ts8550b", .data = &ts8550b_desc },
-	{ }
+	{ .compatible = "sitronix,st7701", .data = &arduino_giga_display_desc },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, st7701_dsi_of_match);
 
