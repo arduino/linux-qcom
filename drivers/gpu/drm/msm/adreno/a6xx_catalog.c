@@ -1486,3 +1486,6 @@ static inline __always_unused void __build_asserts(void)
 	BUILD_BUG_ON(a690_protect.count > a690_protect.count_max);
 	BUILD_BUG_ON(a730_protect.count > a730_protect.count_max);
 }
+
+MODULE_FIRMWARE("qcom/a702_sqe.fw");
+MODULE_FIRMWARE("qcom/qcm2290/a702_zap.mbn");
