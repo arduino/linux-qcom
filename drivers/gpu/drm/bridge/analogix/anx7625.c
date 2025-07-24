@@ -2738,8 +2738,52 @@ static void anx7625_tcpci_unregister(struct anx7625_data *ctx)
 		tcpci_unregister_port(ctx->tcpci);
 }
 #else
+#include <linux/usb.h>
+#include <linux/usb/pd.h>
+#include <linux/usb/role.h>
+#include <linux/usb/typec_altmode.h>
+
+static int anx7625_tcpci_try_role(struct typec_port *port, int role)
+{
+	return -ENOTSUPP;
+}
+
+static int anx7625_tcpci_port_type_set(struct typec_port *port, enum typec_port_type type)
+{
+	return -ENOTSUPP;
+}
+
+static const struct typec_operations anx7625_tcpci_ops = {
+	.try_role = anx7625_tcpci_try_role,
+	.port_type_set = anx7625_tcpci_port_type_set,
+};
+
 static int anx7625_tcpci_register(struct anx7625_data *ctx)
 {
+	struct typec_capability typec_cap = { };
+	struct usb_role_switch *role_sw;
+	struct fwnode_handle *fw;
+	u32 val;
+
+	fw = device_get_named_child_node(ctx->dev, "connector");
+	if (!fw)
+		return 0;
+
+	typec_cap.prefer_role = TYPEC_SINK;
+	typec_cap.driver_data = ctx;
+	typec_cap.type = TYPEC_PORT_SNK;
+	typec_cap.data = TYPEC_PORT_DRD;
+	typec_cap.ops = &anx7625_tcpci_ops;
+	typec_cap.fwnode = fw;
+
+	typec_register_port(ctx->dev, &typec_cap);
+	role_sw = fwnode_usb_role_switch_get(fw);
+
+	val = anx7625_reg_read(ctx, ctx->i2c.rx_p0_client, 0x45);
+	usb_role_switch_set_role(role_sw, (val & BIT(5)) ? USB_ROLE_HOST : USB_ROLE_DEVICE);
+
+	fwnode_handle_put(fw);
+
 	return 0;
 }
 static void anx7625_tcpci_unregister(struct anx7625_data *ctx)
