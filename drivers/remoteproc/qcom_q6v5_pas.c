@@ -1524,3 +1524,5 @@ static struct platform_driver qcom_pas_driver = {
 module_platform_driver(qcom_pas_driver);
 MODULE_DESCRIPTION("Qualcomm Peripheral Authentication Service remoteproc driver");
 MODULE_LICENSE("GPL v2");
+
+MODULE_FIRMWARE("qcom/qcm2290/adsp.mbn");
