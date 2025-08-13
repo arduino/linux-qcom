@@ -264,8 +264,6 @@ static int pm4125_rx_clk_enable(struct snd_soc_component *component)
 				      PM4125_DIG_SWR_RX_CLK_ENABLE);
 	usleep_range(5000, 5100);
 
-	pm4125_global_mbias_enable(component);
-
 	snd_soc_component_write_field(component, PM4125_ANA_HPHPA_FSM_CLK,
 				      PM4125_ANA_HPHPA_FSM_DIV_RATIO_MASK,
 				      PM4125_ANA_HPHPA_FSM_DIV_RATIO_68);
@@ -309,8 +307,6 @@ static int pm4125_rx_clk_disable(struct snd_soc_component *component)
 	snd_soc_component_write_field(component, PM4125_DIG_SWR_CDC_RX_CLK_CTL,
 				      PM4125_DIG_SWR_ANA_RX_CLK_EN_MASK,
 				      PM4125_DIG_SWR_RX_CLK_DISABLE);
-	pm4125_global_mbias_disable(component);
-
 	return 0;
 }
 
@@ -670,7 +666,6 @@ static int pm4125_codec_enable_adc(struct snd_soc_dapm_widget *w,
 			!(snd_soc_component_read(component, PM4125_ANA_TX_AMIC2) & 0x10)) {
 			set_bit(AMIC2_BCS_ENABLE, &pm4125->status_mask);
 		}
-		pm4125_global_mbias_enable(component);
 		if (w->shift)
 			snd_soc_component_write_field(component, PM4125_DIG_SWR_CDC_TX_ANA_MODE_0_1,
 						      PM4125_DIG_SWR_TX_ANA_TXD1_MODE_MASK,
@@ -692,7 +687,6 @@ static int pm4125_codec_enable_adc(struct snd_soc_dapm_widget *w,
 			snd_soc_component_write_field(component, PM4125_DIG_SWR_CDC_TX_ANA_MODE_0_1,
 						      PM4125_DIG_SWR_TX_ANA_TXD0_MODE_MASK,
 						      0x00);
-		pm4125_global_mbias_disable(component);
 		break;
 	};
 
@@ -1042,9 +1036,9 @@ static void pm4125_mbhc_deinit(struct snd_soc_component *component)
 }
 
 static const struct snd_kcontrol_new pm4125_snd_controls[] = {
-	SOC_SINGLE_EXT("HPHL_COMP Switch", SND_SOC_NOPM, 0, 1, 0,
+	SOC_SINGLE_EXT("HPHL_COMP Switch", PM4125_COMP_L, 0, 1, 0,
 		       pm4125_get_compander, pm4125_set_compander),
-	SOC_SINGLE_EXT("HPHR_COMP Switch", SND_SOC_NOPM, 1, 1, 0,
+	SOC_SINGLE_EXT("HPHR_COMP Switch", PM4125_COMP_R, 1, 1, 0,
 		       pm4125_get_compander, pm4125_set_compander),
 
 	SOC_SINGLE_TLV("HPHL Volume", PM4125_ANA_HPHPA_L_GAIN, 0, 20, 1,
@@ -1060,20 +1054,10 @@ static const struct snd_kcontrol_new pm4125_snd_controls[] = {
 		       pm4125_get_swr_port, pm4125_set_swr_port),
 	SOC_SINGLE_EXT("HPHR Switch", PM4125_HPH_R, 0, 1, 0,
 		       pm4125_get_swr_port, pm4125_set_swr_port),
-	SOC_SINGLE_EXT("LO Switch", PM4125_LO, 0, 1, 0,
-		       pm4125_get_swr_port, pm4125_set_swr_port),
 
 	SOC_SINGLE_EXT("ADC1 Switch", PM4125_ADC1, 1, 1, 0,
 		       pm4125_get_swr_port, pm4125_set_swr_port),
 	SOC_SINGLE_EXT("ADC2 Switch", PM4125_ADC2, 1, 1, 0,
-		       pm4125_get_swr_port, pm4125_set_swr_port),
-	SOC_SINGLE_EXT("DMIC0 Switch", PM4125_DMIC0, 1, 1, 0,
-		       pm4125_get_swr_port, pm4125_set_swr_port),
-	SOC_SINGLE_EXT("DMIC1 Switch", PM4125_DMIC1, 1, 1, 0,
-		       pm4125_get_swr_port, pm4125_set_swr_port),
-	SOC_SINGLE_EXT("MBHC Switch", PM4125_MBHC, 1, 1, 0,
-		       pm4125_get_swr_port, pm4125_set_swr_port),
-	SOC_SINGLE_EXT("DMIC2 Switch", PM4125_DMIC2, 1, 1, 0,
 		       pm4125_get_swr_port, pm4125_set_swr_port),
 };
 
