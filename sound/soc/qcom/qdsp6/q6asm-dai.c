@@ -27,10 +27,10 @@
 #define PLAYBACK_MAX_NUM_PERIODS   8
 #define PLAYBACK_MAX_PERIOD_SIZE    65536
 #define PLAYBACK_MIN_PERIOD_SIZE    128
-#define CAPTURE_MIN_NUM_PERIODS     2
+#define CAPTURE_MIN_NUM_PERIODS     8
 #define CAPTURE_MAX_NUM_PERIODS     8
-#define CAPTURE_MAX_PERIOD_SIZE     4096
-#define CAPTURE_MIN_PERIOD_SIZE     320
+#define CAPTURE_MAX_PERIOD_SIZE	    6720
+#define CAPTURE_MIN_PERIOD_SIZE     6720
 #define SID_MASK_DEFAULT	0xF
 
 /* Default values used if user space does not set */
@@ -244,6 +244,9 @@ static int q6asm_dai_prepare(struct snd_soc_component *component,
 		return -ENOMEM;
 	}
 
+	dev_err(dev, "DEBUG: %s: pcm size %d period %d period_sz %ld vs %d rate %d ch %d\n",
+		       	__func__, prtd->pcm_size, prtd->periods, runtime->period_size,
+		       	prtd->pcm_size/prtd->periods, runtime->rate, runtime->channels);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		ret = q6asm_open_write(prtd->audio_client, prtd->stream_id,
 				       FORMAT_LINEAR_PCM,
