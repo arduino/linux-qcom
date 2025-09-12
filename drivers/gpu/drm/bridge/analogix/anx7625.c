@@ -1919,6 +1919,7 @@ static int anx7625_audio_hw_params(struct device *dev, void *data,
 		wl = AUDIO_W_LEN_20_20MAX;
 		break;
 	case 24:
+	case 32:
 		wl = AUDIO_W_LEN_24_24MAX;
 		break;
 	default:
