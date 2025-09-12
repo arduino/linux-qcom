@@ -16,7 +16,7 @@
 #include "usb_offload_utils.h"
 #include "sdw.h"
 
-#define MI2S_BCLK_RATE		1536000
+#define MI2S_BCLK_RATE		3072000
 
 struct sm8250_snd_data {
 	bool stream_prepared[AFE_PORT_MAX];
@@ -78,6 +78,14 @@ static int sm8250_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		channels->min = 1;
 		channels->min = channels->max = 1;
 		break;
+	case PRIMARY_MI2S_RX:
+	case SECONDARY_MI2S_RX:
+	case TERTIARY_MI2S_RX:
+		/* clean any param mask before setting new param */
+		snd_mask_reset_range(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT),
+			     0, (__force unsigned int)SNDRV_PCM_FORMAT_LAST);
+		params_set_format(params, SNDRV_PCM_FORMAT_S32_LE);
+	break;
 	default:
 		break;
 	}
