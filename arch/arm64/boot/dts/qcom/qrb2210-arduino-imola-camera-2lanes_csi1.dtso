@@ -29,9 +29,9 @@
         clocks = <&cam24m>;
 		status = "okay";
 
-		VDIG-supply = <&cam_pwr>;
-		VANA-supply = <&cam_pwr>;
-		VDDL-supply = <&cam_pwr>;
+		VDIG-supply = <&cam_pwr_csi1>;
+		VANA-supply = <&cam_pwr_csi1>;
+		VDDL-supply = <&cam_pwr_csi1>;
 
 		reset-gpios = <&pca9555 2 GPIO_ACTIVE_HIGH>;
 

@@ -9,10 +9,19 @@
 #include <dt-bindings/gpio/gpio.h>
 
 &{/} {
-	cam_pwr: cam-pwr {
+	cam_pwr_csi0: cam-pwr-csi0 {
 		compatible = "regulator-fixed";
 		regulator-name = "cam-pwr";
 		startup-delay-us = <100000>;
+		gpio = <&pca9555 1 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	cam_pwr_csi1: cam-pwr-csi1 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam-pwr";
+		startup-delay-us = <100000>;
+		gpio = <&pca9555 3 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 };
