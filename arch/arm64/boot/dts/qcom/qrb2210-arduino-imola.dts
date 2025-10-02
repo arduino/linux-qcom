@@ -59,7 +59,7 @@
 		};
 	};
 
-	leds {
+	leds: onboard-leds {
 		compatible = "gpio-leds";
 
 		led-bt {
@@ -116,8 +116,6 @@
 			linux,default-trigger = "none";
 			default-state = "off";
 		};
-
-
 	};
 
 	/* PM2250 charger out, supplied by VBAT */

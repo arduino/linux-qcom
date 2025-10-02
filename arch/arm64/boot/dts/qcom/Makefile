@@ -135,6 +135,9 @@ dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-rb1-vision-mezzanine.dtb
 
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola.dtb
 
+qrb2210-arduino-imola-carrier-veddebin-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-carrier-veddebin.dtbo
+dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-veddebin.dtb
+
 qrb2210-arduino-imola-carrier-ocio-2lanes_camera-csi0-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-camera-2lanes_csi0.dtbo
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-ocio-2lanes_camera-csi0.dtb
 
