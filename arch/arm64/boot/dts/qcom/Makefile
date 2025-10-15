@@ -148,6 +148,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-ocio-2lanes_camera-both
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-ocio-4lanes_camera-csi0.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-ocio-4lanes_camera-csi1.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-ocio-4lanes_camera-both.dtb
+dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-veddebin.dtb
 
 qrb2210-arduino-imola-carrier-ocio-2lanes_camera-csi0-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-camera-2lanes_csi0.dtbo
 qrb2210-arduino-imola-carrier-ocio-2lanes_camera-csi1-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-camera-2lanes_csi1.dtbo
@@ -155,6 +156,7 @@ qrb2210-arduino-imola-carrier-ocio-2lanes_camera-both-dtbs	:= qrb2210-arduino-im
 qrb2210-arduino-imola-carrier-ocio-4lanes_camera-csi0-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-camera-4lanes_csi0.dtbo
 qrb2210-arduino-imola-carrier-ocio-4lanes_camera-csi1-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-camera-4lanes_csi1.dtbo
 qrb2210-arduino-imola-carrier-ocio-4lanes_camera-both-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-camera-4lanes_csi0.dtbo qrb2210-arduino-imola-camera-4lanes_csi1.dtbo
+qrb2210-arduino-imola-carrier-veddebin-dtbs	:= qrb2210-arduino-imola.dtb qrb2210-arduino-imola-carrier-veddebin.dtbo
 
 qrb5165-rb5-vision-mezzanine-dtbs	:= qrb5165-rb5.dtb qrb5165-rb5-vision-mezzanine.dtbo
 
