@@ -1001,6 +1001,8 @@ static int pm4125_set_swr_port(struct snd_kcontrol *kcontrol, struct snd_ctl_ele
 	}
 
 	portidx = sdw_priv->ch_info[ch_idx].port_num;
+	if (!portidx) /* Invalid port index */
+		return 0;
 
 	enable = ucontrol->value.integer.value[0];
 
