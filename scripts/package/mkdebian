@@ -207,12 +207,6 @@ Section: kernel
 Priority: optional
 Maintainer: $maintainer
 Rules-Requires-Root: no
-Build-Depends: debhelper-compat (= 12)
-Build-Depends-Arch: bc, bison, flex,
- gcc-${host_gnu} <!pkg.${sourcename}.nokernelheaders>,
- kmod, libdw-dev:native, libelf-dev:native,
- libssl-dev:native, libssl-dev <!pkg.${sourcename}.nokernelheaders>,
- python3:native, rsync
 Homepage: https://www.kernel.org/
 
 Package: $packagename-${KERNELRELEASE}
@@ -266,6 +260,8 @@ cat <<EOF > debian/rules.vars
 ARCH := ${ARCH}
 KERNELRELEASE := ${KERNELRELEASE}
 EOF
+
+echo 12 > debian/compat
 
 cp "${srctree}/scripts/package/debian/copyright" debian/
 cp "${srctree}/scripts/package/debian/rules" debian/
