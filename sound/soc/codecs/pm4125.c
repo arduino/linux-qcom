@@ -843,12 +843,31 @@ static int pm4125_codec_enable_micbias_pullup(struct snd_soc_dapm_widget *w,
 
 static int pm4125_connect_port(struct pm4125_sdw_priv *sdw_priv, u8 port_idx, u8 ch_id, bool enable)
 {
-	struct sdw_port_config *port_config = &sdw_priv->port_config[port_idx - 1];
-	const struct wcd_sdw_ch_info *ch_info = &sdw_priv->ch_info[ch_id];
+	struct sdw_port_config *port_config;
+	const struct wcd_sdw_ch_info *ch_info;
 	struct sdw_slave *sdev = sdw_priv->sdev;
-	u8 port_num = ch_info->port_num;
-	u8 ch_mask = ch_info->ch_mask;
+	u8 port_num, ch_mask;
 	u8 mstr_port_num, mstr_ch_mask;
+
+	if (!port_idx) /* Invalid port index */
+		return -EINVAL;
+
+	if (sdw_priv->is_tx) {
+		if (ch_id > PM4125_ADC2)
+			return -EINVAL;
+	} else {
+		if (ch_id > PM4125_COMP_R)
+			return -EINVAL;
+	}
+
+	ch_info = &sdw_priv->ch_info[ch_id];
+	port_num = ch_info->port_num;
+	ch_mask = ch_info->ch_mask;
+
+	if (!port_num || port_num > PM4125_MAX_SWR_PORTS)
+		return -EINVAL;
+
+	port_config = &sdw_priv->port_config[port_idx - 1];
 
 	port_config->num = port_num;
 
@@ -889,9 +908,17 @@ static int pm4125_set_compander(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 	struct soc_mixer_control *mc;
 	int portidx;
 	bool hphr;
+	int ch_idx;
 
 	mc = (struct soc_mixer_control *)(kcontrol->private_value);
+	ch_idx = mc->reg;
 	hphr = mc->shift;
+
+	if (!sdw_priv)
+		return -EINVAL;
+
+	if (ch_idx < 0 || ch_idx > PM4125_COMP_R)
+		return -EINVAL;
 
 	if (hphr) {
 		if (value == pm4125->comp2_enable)
@@ -905,9 +932,11 @@ static int pm4125_set_compander(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 		pm4125->comp1_enable = value;
 	}
 
-	portidx = sdw_priv->ch_info[mc->reg].port_num;
+	portidx = sdw_priv->ch_info[ch_idx].port_num;
+	if (!portidx)
+		return 0;
 
-	pm4125_connect_port(sdw_priv, portidx, mc->reg, value ? true : false);
+	pm4125_connect_port(sdw_priv, portidx, ch_idx, value ? true : false);
 
 	return 1;
 }
@@ -922,8 +951,24 @@ static int pm4125_get_swr_port(struct snd_kcontrol *kcontrol, struct snd_ctl_ele
 	int ch_idx = mixer->reg;
 	int portidx;
 
+	if (dai_id < 0 || dai_id >= NUM_CODEC_DAIS)
+		return -EINVAL;
+
 	sdw_priv = pm4125->sdw_priv[dai_id];
+	if (!sdw_priv)
+		return -EINVAL;
+
+	if (sdw_priv->is_tx) {
+		if (ch_idx < 0 || ch_idx > PM4125_ADC2)
+			return -EINVAL;
+	} else {
+		if (ch_idx < 0 || ch_idx > PM4125_HPH_R)
+			return -EINVAL;
+	}
+
 	portidx = sdw_priv->ch_info[ch_idx].port_num;
+	if (!portidx) /* Invalid port index */
+		return 0;
 
 	ucontrol->value.integer.value[0] = sdw_priv->port_enable[portidx];
 
@@ -941,9 +986,24 @@ static int pm4125_set_swr_port(struct snd_kcontrol *kcontrol, struct snd_ctl_ele
 	int portidx;
 	bool enable;
 
+	if (dai_id < 0 || dai_id >= NUM_CODEC_DAIS)
+		return -EINVAL;
+
 	sdw_priv = pm4125->sdw_priv[dai_id];
+	if (!sdw_priv)
+		return -EINVAL;
+
+	if (sdw_priv->is_tx) {
+		if (ch_idx < 0 || ch_idx > PM4125_ADC2)
+			return -EINVAL;
+	} else {
+		if (ch_idx < 0 || ch_idx > PM4125_HPH_R)
+			return -EINVAL;
+	}
 
 	portidx = sdw_priv->ch_info[ch_idx].port_num;
+	if (!portidx) /* Invalid port index */
+		return 0;
 
 	enable = ucontrol->value.integer.value[0];
 
@@ -1407,8 +1467,16 @@ static int pm4125_codec_free(struct snd_pcm_substream *substream, struct snd_soc
 {
 	struct pm4125_priv *pm4125 = dev_get_drvdata(dai->dev);
 	struct pm4125_sdw_priv *sdw_priv = pm4125->sdw_priv[dai->id];
+	int ret;
 
-	return sdw_stream_remove_slave(sdw_priv->sdev, sdw_priv->sruntime);
+	/* hw_free() can be invoked again on a DAPM-driven route change; avoid a stale stream UAF */
+	if (!sdw_priv->sruntime)
+		return 0;
+
+	ret = sdw_stream_remove_slave(sdw_priv->sdev, sdw_priv->sruntime);
+	sdw_priv->sruntime = NULL;
+
+	return ret;
 }
 
 static int pm4125_codec_set_sdw_stream(struct snd_soc_dai *dai, void *stream, int direction)
