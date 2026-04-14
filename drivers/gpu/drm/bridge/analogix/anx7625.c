@@ -2101,6 +2101,11 @@ static int anx7625_audio_hw_params(struct device *dev, void *data,
 		ret |= anx7625_write_and(ctx, ctx->i2c.tx_p2_client,
 				AUDIO_CHANNEL_STATUS_6, ~AUDIO_LAYOUT);
 
+
+	/* Right justified for Qualcomm DSP limitations */
+	ret |= anx7625_write_or(ctx, ctx->i2c.tx_p2_client,
+				AUDIO_CONTROL_REGISTER,	1);
+
 	/* FS */
 	switch (params->sample_rate) {
 	case 32000:
