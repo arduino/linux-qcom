@@ -224,15 +224,19 @@ static int q6asm_dai_prepare(struct snd_soc_component *component,
 	}
 
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
-	/* rate and channels are sent to audio driver */
-	if (prtd->state == Q6ASM_STREAM_RUNNING) {
+	/*
+	 * Re-prepare can be called after STOP without closing the previous
+	 * stream session. Ensure any non-idle session is torn down before
+	 * issuing a new OPEN command.
+	 */
+	if (prtd->state != Q6ASM_STREAM_IDLE) {
 		/* clear the previous setup if any  */
 		q6asm_cmd(prtd->audio_client, prtd->stream_id, CMD_CLOSE);
 		q6asm_unmap_memory_regions(substream->stream,
 					   prtd->audio_client);
 		q6routing_stream_close(soc_prtd->dai_link->id,
 					 substream->stream);
-		prtd->state = Q6ASM_STREAM_STOPPED;
+		prtd->state = Q6ASM_STREAM_IDLE;
 	}
 
 	ret = q6asm_map_memory_regions(substream->stream, prtd->audio_client,
@@ -257,7 +261,7 @@ static int q6asm_dai_prepare(struct snd_soc_component *component,
 	}
 
 	if (ret < 0) {
-		dev_err(dev, "%s: q6asm_open_write failed\n", __func__);
+		dev_err(dev, "%s: q6asm_open failed\n", __func__);
 		goto open_err;
 	}
 
