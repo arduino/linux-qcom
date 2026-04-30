@@ -42,4 +42,19 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
+
+	imu@6a {
+		compatible = "st,lsm6dsox";
+		reg = <0x6a>;
+	};
+};
+
+&cci_i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	imu@6a {
+		compatible = "st,lsm6dsox";
+		reg = <0x6a>;
+	};
 };
