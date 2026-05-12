@@ -28,14 +28,11 @@ struct packet_router {
 	struct rpmsg_endpoint *ch;
 	struct device *dev;
 	spinlock_t svcs_lock;
-	spinlock_t rx_lock;
 	struct idr svcs_idr;
 	int dest_domain_id;
 	int type;
 	struct pdr_handle *pdr;
 	struct workqueue_struct *rxwq;
-	struct work_struct rx_work;
-	struct list_head rx_list;
 };
 
 struct apr_rx_buf {
@@ -74,54 +71,58 @@ int apr_send_pkt(struct apr_device *adev, struct apr_pkt *pkt)
 }
 EXPORT_SYMBOL_GPL(apr_send_pkt);
 
+static void apr_svc_release(struct kref *ref)
+{
+	struct pkt_router_svc *svc;
+
+	svc = container_of(ref, struct pkt_router_svc, refcount);
+
+	if (svc->dynamic_svc)
+		kfree(svc);
+}
+
+static void apr_svc_get(struct pkt_router_svc *svc)
+{
+	kref_get(&svc->refcount);
+}
+
+static void apr_svc_put(struct pkt_router_svc *svc)
+{
+	kref_put(&svc->refcount, apr_svc_release);
+}
+
+static void apr_svc_purge_rx(struct pkt_router_svc *svc)
+{
+	struct apr_rx_buf *abuf, *tmp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&svc->lock, flags);
+	list_for_each_entry_safe(abuf, tmp, &svc->rx_list, node) {
+		list_del(&abuf->node);
+		kfree(abuf);
+		apr_svc_put(svc);
+	}
+	spin_unlock_irqrestore(&svc->lock, flags);
+}
+
 void gpr_free_port(gpr_port_t *port)
 {
 	struct packet_router *gpr = port->pr;
 	unsigned long flags;
 
+	spin_lock_irqsave(&port->lock, flags);
+	port->dying = true;
+	spin_unlock_irqrestore(&port->lock, flags);
+
 	spin_lock_irqsave(&gpr->svcs_lock, flags);
 	idr_remove(&gpr->svcs_idr, port->id);
 	spin_unlock_irqrestore(&gpr->svcs_lock, flags);
 
-	kfree(port);
+	cancel_work_sync(&port->rx_work);
+	apr_svc_purge_rx(port);
+	apr_svc_put(port);
 }
 EXPORT_SYMBOL_GPL(gpr_free_port);
-
-gpr_port_t *gpr_alloc_port(struct apr_device *gdev, struct device *dev,
-				gpr_port_cb cb,	void *priv)
-{
-	struct packet_router *pr = dev_get_drvdata(gdev->dev.parent);
-	gpr_port_t *port;
-	struct pkt_router_svc *svc;
-	int id;
-
-	port = kzalloc_obj(*port);
-	if (!port)
-		return ERR_PTR(-ENOMEM);
-
-	svc = port;
-	svc->callback = cb;
-	svc->pr = pr;
-	svc->priv = priv;
-	svc->dev = dev;
-	spin_lock_init(&svc->lock);
-
-	spin_lock(&pr->svcs_lock);
-	id = idr_alloc_cyclic(&pr->svcs_idr, svc, GPR_DYNAMIC_PORT_START,
-			      GPR_DYNAMIC_PORT_END, GFP_ATOMIC);
-	if (id < 0) {
-		dev_err(dev, "Unable to allocate dynamic GPR src port\n");
-		kfree(port);
-		spin_unlock(&pr->svcs_lock);
-		return ERR_PTR(id);
-	}
-
-	svc->id = id;
-	spin_unlock(&pr->svcs_lock);
-
-	return port;
-}
-EXPORT_SYMBOL_GPL(gpr_alloc_port);
 
 static int pkt_router_send_svc_pkt(struct pkt_router_svc *svc, const struct gpr_pkt *pkt)
 {
@@ -155,7 +156,44 @@ static void apr_dev_release(struct device *dev)
 {
 	struct apr_device *adev = to_apr_device(dev);
 
+	cancel_work_sync(&adev->svc.rx_work);
+	apr_svc_purge_rx(&adev->svc);
+	apr_svc_put(&adev->svc);
 	kfree(adev);
+}
+
+static struct pkt_router_svc *apr_find_svc(struct packet_router *apr, void *buf)
+{
+	struct pkt_router_svc *svc;
+	unsigned long flags;
+	uint32_t svc_id;
+	struct apr_hdr *ahdr;
+	struct gpr_hdr *ghdr;
+
+	switch (apr->type) {
+	case PR_TYPE_APR:
+		ahdr = buf;
+		svc_id = ahdr->dest_svc;
+		break;
+	case PR_TYPE_GPR:
+		ghdr = buf;
+		svc_id = ghdr->dest_port;
+		break;
+	default:
+		dev_err(apr->dev, "Invalid Packet Router\n");
+		return NULL;
+	}
+
+	spin_lock_irqsave(&apr->svcs_lock, flags);
+	svc = idr_find(&apr->svcs_idr, svc_id);
+	if (svc)
+		apr_svc_get(svc);
+	spin_unlock_irqrestore(&apr->svcs_lock, flags);
+
+	if (!svc)
+		dev_err(apr->dev, "APR: service is not registered (%d)\n", svc_id);
+
+	return svc;
 }
 
 static int apr_callback(struct rpmsg_device *rpdev, void *buf,
@@ -164,6 +202,7 @@ static int apr_callback(struct rpmsg_device *rpdev, void *buf,
 	struct packet_router *apr = dev_get_drvdata(&rpdev->dev);
 	struct apr_rx_buf *abuf;
 	unsigned long flags;
+	struct pkt_router_svc *svc;
 
 	switch (apr->type) {
 	case PR_TYPE_APR:
@@ -189,24 +228,35 @@ static int apr_callback(struct rpmsg_device *rpdev, void *buf,
 	abuf->len = len;
 	memcpy(abuf->buf, buf, len);
 
-	spin_lock_irqsave(&apr->rx_lock, flags);
-	list_add_tail(&abuf->node, &apr->rx_list);
-	spin_unlock_irqrestore(&apr->rx_lock, flags);
+	svc = apr_find_svc(apr, buf);
+	if (!svc) {
+		kfree(abuf);
+		return 0;
+	}
 
-	queue_work(apr->rxwq, &apr->rx_work);
+	spin_lock_irqsave(&svc->lock, flags);
+	if (svc->dying) {
+		spin_unlock_irqrestore(&svc->lock, flags);
+		kfree(abuf);
+		apr_svc_put(svc);
+		return 0;
+	}
+
+	list_add_tail(&abuf->node, &svc->rx_list);
+	spin_unlock_irqrestore(&svc->lock, flags);
+
+	queue_work(apr->rxwq, &svc->rx_work);
 
 	return 0;
 }
 
-static int apr_do_rx_callback(struct packet_router *apr, struct apr_rx_buf *abuf)
+static int apr_do_rx_callback(struct pkt_router_svc *svc, struct apr_rx_buf *abuf)
 {
-	uint16_t hdr_size, msg_type, ver, svc_id;
-	struct pkt_router_svc *svc;
-	struct apr_device *adev;
+	uint16_t hdr_size, msg_type, ver;
+	struct apr_device *adev = NULL;
 	struct apr_driver *adrv = NULL;
 	struct apr_resp_pkt resp;
 	struct apr_hdr *hdr;
-	unsigned long flags;
 	void *buf = abuf->buf;
 	int len = abuf->len;
 
@@ -217,18 +267,18 @@ static int apr_do_rx_callback(struct packet_router *apr, struct apr_rx_buf *abuf
 
 	hdr_size = APR_HDR_FIELD_SIZE_BYTES(hdr->hdr_field);
 	if (hdr_size < APR_HDR_SIZE) {
-		dev_err(apr->dev, "APR: Wrong hdr size:%d\n", hdr_size);
+		dev_err(svc->dev, "APR: Wrong hdr size:%d\n", hdr_size);
 		return -EINVAL;
 	}
 
 	if (hdr->pkt_size < APR_HDR_SIZE || hdr->pkt_size != len) {
-		dev_err(apr->dev, "APR: Wrong packet size\n");
+		dev_err(svc->dev, "APR: Wrong packet size\n");
 		return -EINVAL;
 	}
 
 	msg_type = APR_HDR_FIELD_MT(hdr->hdr_field);
 	if (msg_type >= APR_MSG_TYPE_MAX) {
-		dev_err(apr->dev, "APR: Wrong message type: %d\n", msg_type);
+		dev_err(svc->dev, "APR: Wrong message type: %d\n", msg_type);
 		return -EINVAL;
 	}
 
@@ -236,22 +286,17 @@ static int apr_do_rx_callback(struct packet_router *apr, struct apr_rx_buf *abuf
 			hdr->dest_domain >= APR_DOMAIN_MAX ||
 			hdr->src_svc >= APR_SVC_MAX ||
 			hdr->dest_svc >= APR_SVC_MAX) {
-		dev_err(apr->dev, "APR: Wrong APR header\n");
+		dev_err(svc->dev, "APR: Wrong APR header\n");
 		return -EINVAL;
 	}
 
-	svc_id = hdr->dest_svc;
-	spin_lock_irqsave(&apr->svcs_lock, flags);
-	svc = idr_find(&apr->svcs_idr, svc_id);
 	if (svc && svc->dev->driver) {
 		adev = svc_to_apr_device(svc);
 		adrv = to_apr_driver(adev->dev.driver);
 	}
-	spin_unlock_irqrestore(&apr->svcs_lock, flags);
 
 	if (!adrv || !adev) {
-		dev_err(apr->dev, "APR: service is not registered (%d)\n",
-			svc_id);
+		dev_err(svc->dev, "APR: service device not found\n");
 		return -EINVAL;
 	}
 
@@ -270,13 +315,11 @@ static int apr_do_rx_callback(struct packet_router *apr, struct apr_rx_buf *abuf
 	return 0;
 }
 
-static int gpr_do_rx_callback(struct packet_router *gpr, struct apr_rx_buf *abuf)
+static int gpr_do_rx_callback(struct pkt_router_svc *svc, struct apr_rx_buf *abuf)
 {
 	uint16_t hdr_size, ver;
-	struct pkt_router_svc *svc = NULL;
 	struct gpr_resp_pkt resp;
 	struct gpr_hdr *hdr;
-	unsigned long flags;
 	void *buf = abuf->buf;
 	int len = abuf->len;
 
@@ -287,12 +330,12 @@ static int gpr_do_rx_callback(struct packet_router *gpr, struct apr_rx_buf *abuf
 
 	hdr_size = hdr->hdr_size;
 	if (hdr_size < GPR_PKT_HEADER_WORD_SIZE) {
-		dev_err(gpr->dev, "GPR: Wrong hdr size:%d\n", hdr_size);
+		dev_err(svc->dev, "GPR: Wrong hdr size:%d\n", hdr_size);
 		return -EINVAL;
 	}
 
 	if (hdr->pkt_size < GPR_PKT_HEADER_BYTE_SIZE || hdr->pkt_size != len) {
-		dev_err(gpr->dev, "GPR: Wrong packet size\n");
+		dev_err(svc->dev, "GPR: Wrong packet size\n");
 		return -EINVAL;
 	}
 
@@ -306,48 +349,90 @@ static int gpr_do_rx_callback(struct packet_router *gpr, struct apr_rx_buf *abuf
 	if (resp.payload_size > 0)
 		resp.payload = buf + (hdr_size *  4);
 
-
-	spin_lock_irqsave(&gpr->svcs_lock, flags);
-	svc = idr_find(&gpr->svcs_idr, hdr->dest_port);
-	spin_unlock_irqrestore(&gpr->svcs_lock, flags);
-
-	if (!svc) {
-		dev_err(gpr->dev, "GPR: Port(%x) is not registered\n",
-			hdr->dest_port);
-		return -EINVAL;
-	}
-
 	if (svc->callback)
 		svc->callback(&resp, svc->priv, 0);
 
 	return 0;
 }
 
-static void apr_rxwq(struct work_struct *work)
+static void apr_service_rxwq(struct work_struct *work)
 {
-	struct packet_router *apr = container_of(work, struct packet_router, rx_work);
+	struct pkt_router_svc *svc = container_of(work, struct pkt_router_svc, rx_work);
+	struct packet_router *apr = svc->pr;
 	struct apr_rx_buf *abuf, *b;
 	unsigned long flags;
 
-	if (!list_empty(&apr->rx_list)) {
-		list_for_each_entry_safe(abuf, b, &apr->rx_list, node) {
+	for (;;) {
+		LIST_HEAD(local);
+
+		spin_lock_irqsave(&svc->lock, flags);
+		if (list_empty(&svc->rx_list)) {
+			spin_unlock_irqrestore(&svc->lock, flags);
+			break;
+		}
+
+		list_splice_init(&svc->rx_list, &local);
+		spin_unlock_irqrestore(&svc->lock, flags);
+
+		list_for_each_entry_safe(abuf, b, &local, node) {
 			switch (apr->type) {
 			case PR_TYPE_APR:
-				apr_do_rx_callback(apr, abuf);
+				apr_do_rx_callback(svc, abuf);
 				break;
 			case PR_TYPE_GPR:
-				gpr_do_rx_callback(apr, abuf);
+				gpr_do_rx_callback(svc, abuf);
 				break;
 			default:
 				break;
 			}
-			spin_lock_irqsave(&apr->rx_lock, flags);
+			apr_svc_put(svc);
 			list_del(&abuf->node);
-			spin_unlock_irqrestore(&apr->rx_lock, flags);
 			kfree(abuf);
 		}
 	}
 }
+
+gpr_port_t *gpr_alloc_port(struct apr_device *gdev, struct device *dev,
+				gpr_port_cb cb,	void *priv)
+{
+	struct packet_router *pr = dev_get_drvdata(gdev->dev.parent);
+	gpr_port_t *port;
+	struct pkt_router_svc *svc;
+	int id;
+
+	port = kzalloc_obj(*port);
+	if (!port)
+		return ERR_PTR(-ENOMEM);
+
+	svc = port;
+	svc->callback = cb;
+	svc->pr = pr;
+	svc->priv = priv;
+	svc->dying = false;
+	svc->dynamic_svc = true;
+	svc->dev = dev;
+	spin_lock_init(&svc->lock);
+
+	INIT_WORK(&svc->rx_work, apr_service_rxwq);
+	INIT_LIST_HEAD(&svc->rx_list);
+	kref_init(&svc->refcount);
+
+	spin_lock(&pr->svcs_lock);
+	id = idr_alloc_cyclic(&pr->svcs_idr, svc, GPR_DYNAMIC_PORT_START,
+			      GPR_DYNAMIC_PORT_END, GFP_ATOMIC);
+	if (id < 0) {
+		dev_err(dev, "Unable to allocate dynamic GPR src port\n");
+		kfree(port);
+		spin_unlock(&pr->svcs_lock);
+		return ERR_PTR(id);
+	}
+
+	svc->id = id;
+	spin_unlock(&pr->svcs_lock);
+
+	return port;
+}
+EXPORT_SYMBOL_GPL(gpr_alloc_port);
 
 static int apr_device_match(struct device *dev, const struct device_driver *drv)
 {
@@ -390,6 +475,11 @@ static void apr_device_remove(struct device *dev)
 	struct apr_device *adev = to_apr_device(dev);
 	struct apr_driver *adrv = to_apr_driver(dev->driver);
 	struct packet_router *apr = dev_get_drvdata(adev->dev.parent);
+	unsigned long flags;
+
+	spin_lock_irqsave(&adev->svc.lock, flags);
+	adev->svc.dying = true;
+	spin_unlock_irqrestore(&adev->svc.lock, flags);
 
 	if (adrv->remove)
 		adrv->remove(adev);
@@ -437,8 +527,14 @@ static int apr_add_device(struct device *dev, struct device_node *np,
 	svc->id = svc_id;
 	svc->pr = apr;
 	svc->priv = adev;
+	svc->dying = false;
 	svc->dev = dev;
+	svc->dynamic_svc = false;
 	spin_lock_init(&svc->lock);
+
+	INIT_WORK(&svc->rx_work, apr_service_rxwq);
+	INIT_LIST_HEAD(&svc->rx_list);
+	kref_init(&svc->refcount);
 
 	adev->domain_id = domain_id;
 
@@ -488,7 +584,6 @@ static int apr_add_device(struct device *dev, struct device_node *np,
 		dev_err(dev, "device_register failed: %d\n", ret);
 		put_device(&adev->dev);
 	}
-
 out:
 	return ret;
 }
@@ -629,12 +724,12 @@ static int apr_probe(struct rpmsg_device *rpdev)
 	dev_set_drvdata(dev, apr);
 	apr->ch = rpdev->ept;
 	apr->dev = dev;
-	apr->rxwq = create_singlethread_workqueue("qcom_apr_rx");
+
+	apr->rxwq = alloc_workqueue("qcom_apr_rx", WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
 	if (!apr->rxwq) {
 		dev_err(apr->dev, "Failed to start Rx WQ\n");
 		return -ENOMEM;
 	}
-	INIT_WORK(&apr->rx_work, apr_rxwq);
 
 	apr->pdr = pdr_handle_alloc(apr_pd_status, apr);
 	if (IS_ERR(apr->pdr)) {
@@ -643,8 +738,6 @@ static int apr_probe(struct rpmsg_device *rpdev)
 		goto destroy_wq;
 	}
 
-	INIT_LIST_HEAD(&apr->rx_list);
-	spin_lock_init(&apr->rx_lock);
 	spin_lock_init(&apr->svcs_lock);
 	idr_init(&apr->svcs_idr);
 
