@@ -3,6 +3,7 @@
 #ifndef __QCOM_APR_H_
 #define __QCOM_APR_H_
 
+#include <linux/kref.h>
 #include <linux/spinlock.h>
 #include <linux/device.h>
 #include <linux/device-id/apr.h>
@@ -129,6 +130,11 @@ struct pkt_router_svc {
 	gpr_port_cb callback;
 	struct packet_router *pr;
 	spinlock_t lock;
+	struct work_struct rx_work;
+	struct list_head rx_list;
+	struct kref refcount;
+	bool dying;
+	bool dynamic_svc;
 	int id;
 	void *priv;
 };
