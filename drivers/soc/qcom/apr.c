@@ -466,6 +466,7 @@ static int apr_add_device(struct device *dev, struct device_node *np,
 					    1, &adev->service_path);
 	if (ret < 0 && ret != -EINVAL) {
 		dev_err(dev, "Failed to read second value of qcom,protection-domain\n");
+		idr_remove(&apr->svcs_idr, svc_id);
 		goto out;
 	}
 
