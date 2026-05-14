@@ -165,9 +165,20 @@ static int apr_callback(struct rpmsg_device *rpdev, void *buf,
 	struct apr_rx_buf *abuf;
 	unsigned long flags;
 
-	if (len <= APR_HDR_SIZE) {
-		dev_err(apr->dev, "APR: Improper apr pkt received:%p %d\n",
-			buf, len);
+	switch (apr->type) {
+	case PR_TYPE_APR:
+		if (len <= APR_HDR_SIZE) {
+			dev_err(apr->dev, "APR: Improper apr pkt received:%p %d\n", buf, len);
+			return -EINVAL;
+		}
+		break;
+	case PR_TYPE_GPR:
+		if (len <= GPR_HDR_SIZE) {
+			dev_err(apr->dev, "APR: Improper gpr pkt received:%p %d\n", buf, len);
+			return -EINVAL;
+		}
+		break;
+	default:
 		return -EINVAL;
 	}
 
