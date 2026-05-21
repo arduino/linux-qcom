@@ -39,6 +39,8 @@ struct snd_soc_common {
 	int num_dapm_widgets;
 	const struct snd_soc_dapm_route *dapm_routes;
 	int num_dapm_routes;
+	const struct snd_kcontrol_new *controls;
+	int num_controls;
 	bool mi2s_mclk_enable;
 };
 
@@ -142,18 +144,22 @@ static int sc8280xp_snd_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
-	struct sc8280xp_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
 	int mclk_freq = sc8280xp_get_mclk_feq(params_rate(params));
+	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
+	unsigned int codec_dai_fmt;
+	unsigned int cpu_dai_fmt;
 
 	switch (cpu_dai->id) {
 	case PRIMARY_MI2S_RX...QUATERNARY_MI2S_TX:
 	case QUINARY_MI2S_RX...QUINARY_MI2S_TX:
-		snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_BP_FP);
+	case LPI_MI2S_RX_0 ... LPI_MI2S_TX_4:
+		codec_dai_fmt = SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_BC_FC;
+		cpu_dai_fmt = SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_BP_FP;
 
-		if (data->snd_soc_common_priv->mi2s_mclk_enable)
-			snd_soc_dai_set_sysclk(cpu_dai,
-					       LPAIF_MI2S_MCLK, mclk_freq,
-					       SND_SOC_CLOCK_IN);
+		snd_soc_dai_set_sysclk(codec_dai, 0, mclk_freq, SND_SOC_CLOCK_IN);
+		snd_soc_dai_set_fmt(cpu_dai, cpu_dai_fmt);
+		snd_soc_dai_set_fmt(codec_dai, codec_dai_fmt);
+		break;
 		break;
 	default:
 		break;
@@ -186,6 +192,27 @@ static const struct snd_soc_ops sc8280xp_be_ops = {
 	.hw_params = sc8280xp_snd_hw_params,
 	.hw_free = sc8280xp_snd_hw_free,
 	.prepare = sc8280xp_snd_prepare,
+};
+
+static const struct snd_kcontrol_new monaco_monza_max98090_controls[] = {
+	SOC_DAPM_PIN_SWITCH("Headset Mic12"),
+	SOC_DAPM_PIN_SWITCH("Headphone"),
+	SOC_DAPM_PIN_SWITCH("Headset Mic56"),
+	SOC_DAPM_PIN_SWITCH("Speaker"),
+	SOC_DAPM_PIN_SWITCH("Receiver"),
+	SOC_DAPM_PIN_SWITCH("Int Mic"),
+};
+
+static const struct snd_soc_dapm_widget monaco_monza_dapm_widgets[] = {
+	SND_SOC_DAPM_HP("Headphone Jack", NULL),
+	SND_SOC_DAPM_MIC("Mic Jack", NULL),
+
+	SND_SOC_DAPM_HP("Headphone", NULL),
+	SND_SOC_DAPM_MIC("Headset Mic12", NULL),
+	SND_SOC_DAPM_MIC("Headset Mic56", NULL),
+	SND_SOC_DAPM_MIC("Int Mic", NULL),
+	SND_SOC_DAPM_SPK("Receiver", NULL),
+	SND_SOC_DAPM_SPK("Speaker", NULL),
 };
 
 static void sc8280xp_add_be_ops(struct snd_soc_card *card)
@@ -230,6 +257,8 @@ static int sc8280xp_platform_probe(struct platform_device *pdev)
 	card->num_dapm_widgets = data->snd_soc_common_priv->num_dapm_widgets;
 	card->dapm_routes = data->snd_soc_common_priv->dapm_routes;
 	card->num_dapm_routes = data->snd_soc_common_priv->num_dapm_routes;
+	card->controls = data->snd_soc_common_priv->controls;
+	card->num_controls  = data->snd_soc_common_priv->num_controls;
 
 	ret = qcom_snd_parse_of(card);
 	if (ret)
@@ -279,8 +308,10 @@ static struct snd_soc_common qcs6490_priv_data = {
 
 static struct snd_soc_common qcs8275_priv_data = {
 	.driver_name = "qcs8300",
-	.dapm_widgets = sc8280xp_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(sc8280xp_dapm_widgets),
+	.dapm_widgets = monaco_monza_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(monaco_monza_dapm_widgets),
+	.controls = monaco_monza_max98090_controls,
+	.num_controls = ARRAY_SIZE(monaco_monza_max98090_controls),
 };
 
 static struct snd_soc_common sc8280xp_priv_data = {
