@@ -487,6 +487,8 @@
 
 &thermal_zones {
 	cpuss-0-0-thermal {
+		polling-delay = <2000>;
+
 		trips {
 			cpuss0_active: cpuss-active {
 				temperature = <32000>;
