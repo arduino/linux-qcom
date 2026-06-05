@@ -831,6 +831,16 @@
 			reg = <0x0 0x9be82000 0x0 0x700000>;
 			no-map;
 		};
+
+		gearvm_mem: gearvm-region@b0000000 {
+			reg = <0x0 0xb0000000 0x0 0x800000>;
+			no-map;
+		};
+
+		gearvm_shm_mem: gearvm-shm-region@d0000000 {
+			reg = <0x0 0xd0000000 0x0 0x100000>;
+			no-map;
+		};
 	};
 
 	smp2p-adsp {
