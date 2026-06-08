@@ -662,6 +662,16 @@ static int anx7625_api_dsi_config(struct anx7625_data *ctx)
 		return ret;
 	}
 
+	for (int i = 0; i < 5; i++) {
+			/* Set MIPI RX termination to 75ohm */
+			ret = anx7625_reg_write(ctx, ctx->i2c.rx_p1_client,
+									MIPI_ANALOG_CTRL_0 + i, 0xf8);
+			if (ret < 0) {
+					DRM_DEV_ERROR(dev, "IO error : set lane %d termination fail.\n", i);
+					return ret;
+			}
+	}
+
 	/* DSI clock settings */
 	val = (0 << MIPI_HS_PWD_CLK)		|
 		(0 << MIPI_HS_RT_CLK)		|
@@ -1381,6 +1391,39 @@ static int anx7625_read_hpd_gpio_config_status(struct anx7625_data *ctx)
 {
 	return anx7625_reg_read(ctx, ctx->i2c.rx_p0_client, GPIO_CTRL_2);
 }
+
+static ssize_t mipi_check_sum_err_hs_show(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
+{
+	struct anx7625_data *ctx = dev_get_drvdata(dev);
+	int ret;
+
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&ctx->lock);
+	ret = anx7625_reg_read(ctx, ctx->i2c.rx_p1_client, 0x19);
+	mutex_unlock(&ctx->lock);
+
+	pm_runtime_put_autosuspend(dev);
+
+	if (ret < 0)
+		return ret;
+
+	return sysfs_emit(buf, "%u\n", !!(ret & BIT(5)));
+}
+static DEVICE_ATTR_RO(mipi_check_sum_err_hs);
+
+static struct attribute *anx7625_attrs[] = {
+	&dev_attr_mipi_check_sum_err_hs.attr,
+	NULL,
+};
+
+static const struct attribute_group anx7625_attr_group = {
+	.attrs = anx7625_attrs,
+};
 
 static void anx7625_disable_pd_protocol(struct anx7625_data *ctx)
 {
@@ -3035,6 +3078,10 @@ static int anx7625_i2c_probe(struct i2c_client *client)
 	pm_runtime_use_autosuspend(dev);
 	pm_suspend_ignore_children(dev, true);
 	ret = devm_pm_runtime_enable(dev);
+	if (ret)
+		goto free_wq;
+
+	ret = devm_device_add_group(dev, &anx7625_attr_group);
 	if (ret)
 		goto free_wq;
 
