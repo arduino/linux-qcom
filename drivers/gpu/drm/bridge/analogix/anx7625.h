@@ -293,6 +293,8 @@
 #define  MIPI_LANE_CTRL_0		0x05
 #define  MIPI_TIME_HS_PRPR		0x08
 
+#define  MIPI_ANALOG_CTRL_0		0x10
+
 /*
  * After MIPI RX protocol layer received video frames,
  * Protocol layer starts to reconstruct video stream from PHY
