@@ -490,7 +490,10 @@ int ath11k_tm_cmd(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	switch (nla_get_u32(tb[ATH_TM_ATTR_CMD])) {
 	case ATH_TM_CMD_GET_VERSION:
-		return ath11k_tm_cmd_get_version(ar, tb);
+		if (!tb[ATH_TM_ATTR_DATA])
+			return ath11k_tm_cmd_get_version(ar, tb);
+		else
+			return ath11k_tm_cmd_wmi_ftm(ar, tb);
 	case ATH_TM_CMD_WMI:
 		return ath11k_tm_cmd_wmi(ar, tb, vif);
 	case ATH_TM_CMD_TESTMODE_START:
