@@ -628,6 +628,31 @@
 };
 
 &tlmm {
+	gpio-line-names = "", "", "", "", "",
+			  "", "", "", "", "",
+			  "JMISC_SPI_MISO", "JMISC_SPI_MOSI", "JMISC_SPI_SCK", "JMISC_SPI_CS0", "JMISC_SPI_CS1",
+			  "JMISC_CS2", "", "JHAT_P03_I2C_SDA", "JHAT_P05_I2C_SCL", "JHAT_P27_EEPROM_SDA",
+			  "JHAT_P28_EEPROM_SDL", "", "", "", "",
+			  "JHAT_P09_SPI_MISO", "JHAT_P10_SPI_MOSI", "JHAT_P11_SPI_SCLK", "JHAT_P24_SPI_CE0", "",
+			  "", "MCU_I2C1_SDA", "MCU_I2C1_SDL", "", "",
+			  "", "", "JOMEGA_SPI_SCK", "JOMEGA_SPI_CS", "JOMEGA_SPI_MISO",
+			  "JOMEGA_SPI_MOSI", "", "MCU_PG11", "JCTL_UART_DBG_TX", "JCTL_UART_DBG_RX", /* GPIO 40->44 */
+			  "", "", "MCU_BOOT0", "CYPD_SWCLK", "",
+			  "", "", "FORCE_USB_BOOT", "", "",
+			  "", "", "JMEDIA_SOC_CC0_SDA", "JMEDIA_SOC_CC0_SCL", "JMEDIA_SOC_CC1_SDA",
+			  "JMEDIA_SOC_CC1_SCL", "", "", "MCU_PG12", "",
+			  "FLAT0_P17_GPIO", "", "JMEDIA_SOC_CAM_MCLK0", "JMEDIA_SOC_CAM_MCLK1", "MCU_PG9", /* GPIO 65->69 */
+			  "MCU_PA13_SWDIO", "MCU_PA14_SWCLK", "", "JMISC_SOC_GPIO_0", "JMISC_SOC_GPIO_1",
+			  "FLAT1_P17_GPIO", "", "JHAT_P32_PWM0", "MCU_NRST", "USER_BUTTON", /* GPIO 75->79 */
+			  "JHAT_P31_GPIO", "JHAT_P33_GPIO",  "FLAT2_P17_GPIO", "JHAT_P07_GPCLK0", "JHAT_P36_UART_CTS",
+			  "JHAT_P11_UART_RFR", "JHAT_P08_UART_TX", "JHAT_P10_UART_RX", "JHAT_P26_SPI_CE1", "JHAT_P29_GPIO",
+			  "JHAT_P15_GPIO", "", "MCU_PG10", "", "CYPD_SWDIO", /* GPIO 90->94 */
+			  "MCU_PG13", "MCU_PG14", "", "", "",
+			  "", "", "", "", "CYPD_NRES",
+			  "JHAT_P16_GPIO", "JHAT_P18_GPIO", "JHAT_P22_GPIO", "JHAT_P37_GPIO", "JHAT_P13_GPIO",
+			  "", "", "", "", "", /* GPIO 110->114 */
+			  "", "JHAT_P12_PCM_CLK", "JHAT_P35_PCM_FS", "JHAT_P38_PCM_DIN", "JHAT_P40_PCM_DOUT";
+
 	pcie0_default_state: pcie0-default-state {
 		wake-pins {
 			pins = "gpio0";
