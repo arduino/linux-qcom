@@ -40,6 +40,7 @@
 			linux,code = <KEY_HOMEPAGE>;
 			gpios = <&tlmm 79 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
+			wakeup-source;
 		};
 	};
 
