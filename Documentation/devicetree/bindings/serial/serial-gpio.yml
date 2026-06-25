@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+title: GPIO bitbanged UART
+
+maintainers:
+  - Riccardo Mereu <r.mereu@arduino.cc>
+
+allOf:
+  - $ref: /schemas/serial/serial.yaml#
+
+properties:
+  compatible:
+    items:
+      - const: thinkty,soft_serial
+
+  # Deprecated properties, do not use in new device tree sources:
+  serial-gpios:
+    minItems: 2
+    maxItems: 2
+    description: tx and rx gpio, alternative for {tx,rx}-gpios.
+                 First one is tx, second one is rx
+
+required:
+  - compatible
+  - serial-gpios
+  - interrupts
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    bitbanged-uart {
+      compatible = "thinkty,soft_serial";
+      pinctrl-names = "default";
+      pinctrl-0 = <&jmisc_gpio98>, <&jmisc_gpio99>;
+      serial-gpios = <&tlmm 99 GPIO_ACTIVE_HIGH>, <&tlmm 98 GPIO_ACTIVE_HIGH>;
+      interrupt-parent = <&tlmm>;
+      interrupts = <98 IRQ_TYPE_EDGE_FALLING>;
+
+      status = "okay";
+    };
