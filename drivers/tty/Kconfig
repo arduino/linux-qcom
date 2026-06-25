@@ -208,6 +208,17 @@ config SERIAL_NONSTANDARD
 
 	  Most people can say N here.
 
+config SERIAL_GPIO
+	tristate "Bitbanged tty"
+	help
+	  Say Y here if you want to use a GPIO pin as a serial port.
+
+	  Experimental support for a bitbanged serial port using GPIO pins.
+	  Max baudrate is 57600 tested on Arduino UNO-Q board.
+	  To change baud you need to reload the module including
+	  baudrate parameter, for example:
+	  # modprobe uart_gpio baudrate=9600
+
 config MOXA_INTELLIO
 	tristate "Moxa Intellio support"
 	depends on SERIAL_NONSTANDARD && PCI
