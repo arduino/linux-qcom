@@ -21,7 +21,19 @@
 		serial0 = &uart4;
 		serial1 = &uart2;
 		serial2 = &uart3;
+		serial3 = &bb_uart;
 		sdhc1 = &sdhc_1;
+	};
+
+	bb_uart: bitbanged-uart {
+		compatible = "thinkty,soft_serial";
+		pinctrl-names = "default";
+		pinctrl-0 = <&jmisc_gpio98>, <&jmisc_gpio99>;
+		serial-gpios = <&tlmm 99 GPIO_ACTIVE_HIGH>, <&tlmm 98 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <98 IRQ_TYPE_EDGE_FALLING>;
+
+		status = "okay";
 	};
 
 	chosen {
@@ -595,15 +607,12 @@
 	jmisc_gpio98: jmisc-gpio98-state {
 		pins = "gpio98";
 		function = "gpio";
-		drive-strength = <2>;
-		bias-pull-down;
+		bias-pull-up;
 	};
 
 	jmisc_gpio99: jmisc-gpio99-state {
 		pins = "gpio99";
 		function = "gpio";
-		drive-strength = <2>;
-		bias-pull-down;
 	};
 
 	jmisc_gpio100: jmisc-gpio100-state {
