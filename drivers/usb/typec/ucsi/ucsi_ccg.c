@@ -740,10 +740,20 @@ static int get_fw_info(struct ucsi_ccg *uc)
 	uc->fw_version = CCG_VERSION(uc->version[FW2].app.ver) |
 			CCG_VERSION_PATCH(uc->version[FW2].app.patch);
 
+	dev_info(uc->dev, "CCG FW version: %d.%d.%d build 0x%04x\n",
+		 (uc->version[FW2].app.ver & CCG_VERSION_MAJ_MASK) >> CCG_VERSION_MAJ_SHIFT,
+		 (uc->version[FW2].app.ver & CCG_VERSION_MIN_MASK) >> CCG_VERSION_MIN_SHIFT,
+		 uc->version[FW2].app.patch,
+		 le16_to_cpu(uc->version[FW2].app.build));
+
 	err = ccg_read(uc, CCGX_RAB_DEVICE_MODE, (u8 *)(&uc->info),
 		       sizeof(uc->info));
 	if (err < 0)
 		return err;
+
+	dev_info(uc->dev, "CCG silicon_id:0x%04x mode:%u\n",
+		 le16_to_cpu(uc->info.silicon_id),
+		 (uc->info.mode & CCG_DEVINFO_FWMODE_MASK) >> CCG_DEVINFO_FWMODE_SHIFT);
 
 	return 0;
 }
