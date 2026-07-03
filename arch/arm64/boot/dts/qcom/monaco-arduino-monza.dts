@@ -616,20 +616,64 @@
 
 &thermal_zones {
 	cpuss-0-0-thermal {
-		polling-delay = <2000>;
-
+		/*
+		 * Ladder of active trips that each pin the fan to a fixed
+		 * cooling state (lower == upper in the cooling-maps). This
+		 * makes the fan speed a function of the actual temperature
+		 * band instead of the thermal trend: with the default
+		 * step_wise governor a single "active .. THERMAL_NO_LIMIT"
+		 * map only ramps the speed up/down one step per poll based on
+		 * whether the temperature is rising or falling. The multiple
+		 * trips also give the tsens hardware several thresholds to
+		 * raise an interrupt on, so the fan is re-evaluated whenever
+		 * the temperature crosses a band boundary. The zone is purely
+		 * interrupt driven, so no polling-delay is set.
+		 */
 		trips {
-			cpuss0_active: cpuss-active {
-				temperature = <32000>;
-				hysteresis = <2000>;
+			cpuss0_active0: cpuss-active0 {
+				temperature = <50000>;
+				hysteresis = <4000>;
+				type = "active";
+			};
+
+			cpuss0_active1: cpuss-active1 {
+				temperature = <60000>;
+				hysteresis = <4000>;
+				type = "active";
+			};
+
+			cpuss0_active2: cpuss-active2 {
+				temperature = <70000>;
+				hysteresis = <4000>;
+				type = "active";
+			};
+
+			cpuss0_active3: cpuss-active3 {
+				temperature = <80000>;
+				hysteresis = <4000>;
 				type = "active";
 			};
 		};
 
 		cooling-maps {
-			map-active {
-				trip = <&cpuss0_active>;
-				cooling-device = <&fan 0 THERMAL_NO_LIMIT>;
+			map-active0 {
+				trip = <&cpuss0_active0>;
+				cooling-device = <&fan 4 4>;
+			};
+
+			map-active1 {
+				trip = <&cpuss0_active1>;
+				cooling-device = <&fan 6 6>;
+			};
+
+			map-active2 {
+				trip = <&cpuss0_active2>;
+				cooling-device = <&fan 8 8>;
+			};
+
+			map-active3 {
+				trip = <&cpuss0_active3>;
+				cooling-device = <&fan 10 10>;
 			};
 		};
 	};
