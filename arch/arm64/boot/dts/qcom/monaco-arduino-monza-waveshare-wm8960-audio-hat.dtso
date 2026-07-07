@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *
+ * Device tree overlay for the Waveshare WM8960 Audio HAT connected to the
+ * Arduino Monza 40-pin JHAT connector.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
+
+&{/} {
+	/* on board fixed crystal */
+	wm8960_mclk: wm8960-mclk {
+		compatible = "fixed-clock";
+		clock-frequency = <12288000>;
+		#clock-cells = <0>;
+	};
+};
+
+&i2c0 {
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	wm8960: audio-codec@1a {
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		clocks = <&wm8960_mclk>;
+		clock-names = "mclk";
+		AVDD-supply = <&vdc_3v3>;
+		SPKVDD1-supply = <&vdc_5v>;
+		SPKVDD2-supply = <&vdc_5v>;
+		#sound-dai-cells = <0>;
+	};
+};
+
+&lpass_tlmm {
+	lpi_i2s1_active: lpi-i2s1-active-state {
+		clk-pins {
+			pins = "gpio6";
+			function = "i2s1_clk";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		ws-pins {
+			pins = "gpio7";
+			function = "i2s1_ws";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		data-pins {
+			pins = "gpio8", "gpio9";
+			function = "i2s1_data";
+			drive-strength = <8>;
+			bias-disable;
+		};
+	};
+};
+
+&sound {
+	pinctrl-0 = <&quad_mi2s_active>, <&quad_mclk_active>, <&lpi_i2s4_active>,
+		    <&lpi_i2s1_active>;
+
+	i2s1-playback-dai-link {
+		link-name = "JHAT Analog Playback";
+
+		codec {
+			sound-dai = <&wm8960>;
+		};
+
+		cpu {
+			sound-dai = <&q6apmbedai LPI_MI2S_RX_1>;
+		};
+
+		platform {
+			sound-dai = <&q6apm>;
+		};
+	};
+
+	i2s1-capture-dai-link {
+		link-name = "JHAT Analog Capture";
+
+		codec {
+			sound-dai = <&wm8960>;
+		};
+
+		cpu {
+			sound-dai = <&q6apmbedai LPI_MI2S_TX_1>;
+		};
+
+		platform {
+			sound-dai = <&q6apm>;
+		};
+	};
+};
