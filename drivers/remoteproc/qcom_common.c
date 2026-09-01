@@ -627,3 +627,6 @@ EXPORT_SYMBOL_GPL(qcom_remove_pdm_subdev);
 
 MODULE_DESCRIPTION("Qualcomm Remoteproc helper driver");
 MODULE_LICENSE("GPL v2");
+
+/* Ensure the PD mapper is loaded before remote processor bring-up */
+MODULE_SOFTDEP("pre: qcom_pd_mapper");
