@@ -1466,8 +1466,16 @@ static int pm4125_codec_free(struct snd_pcm_substream *substream, struct snd_soc
 {
 	struct pm4125_priv *pm4125 = dev_get_drvdata(dai->dev);
 	struct pm4125_sdw_priv *sdw_priv = pm4125->sdw_priv[dai->id];
+	int ret;
 
-	return sdw_stream_remove_slave(sdw_priv->sdev, sdw_priv->sruntime);
+	/* hw_free() can be invoked again on a DAPM-driven route change; avoid a stale stream UAF */
+	if (!sdw_priv->sruntime)
+		return 0;
+
+	ret = sdw_stream_remove_slave(sdw_priv->sdev, sdw_priv->sruntime);
+	sdw_priv->sruntime = NULL;
+
+	return ret;
 }
 
 static int pm4125_codec_set_sdw_stream(struct snd_soc_dai *dai, void *stream, int direction)
