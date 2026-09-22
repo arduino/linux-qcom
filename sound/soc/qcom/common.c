@@ -178,12 +178,104 @@ int qcom_snd_apply_dai_tdm_slots(struct snd_soc_pcm_runtime *rtd)
 }
 EXPORT_SYMBOL_GPL(qcom_snd_apply_dai_tdm_slots);
 
+static int qcom_snd_setup_dai_link(struct snd_soc_card *card,
+				   struct snd_soc_dai_link *link,
+				   struct device_node *np)
+{
+	struct device *dev = card->dev;
+	struct snd_soc_dai_link_component *dlc;
+	struct of_phandle_args args;
+	int ret;
+
+	dlc = devm_kcalloc(dev, 2, sizeof(*dlc), GFP_KERNEL);
+	if (!dlc)
+		return -ENOMEM;
+
+	link->cpus	= &dlc[0];
+	link->platforms	= &dlc[1];
+
+	link->num_cpus		= 1;
+	link->num_platforms	= 1;
+
+	ret = of_property_read_string(np, "link-name", &link->name);
+	if (ret) {
+		dev_err(dev, "error getting codec dai_link name\n");
+		return ret;
+	}
+
+	struct device_node *cpu __free(device_node) =
+		of_get_child_by_name(np, "cpu");
+	struct device_node *platform __free(device_node) =
+		of_get_child_by_name(np, "platform");
+	struct device_node *codec __free(device_node) =
+		of_get_child_by_name(np, "codec");
+
+	if (!cpu) {
+		dev_err(dev, "%s: Can't find cpu DT node\n", link->name);
+		return -EINVAL;
+	}
+
+	ret = snd_soc_of_get_dlc(cpu, &args, link->cpus, 0);
+	if (ret) {
+		dev_err_probe(dev, ret,
+			      "%s: error getting cpu dai name\n", link->name);
+		return ret;
+	}
+
+	link->id = args.args[0];
+
+	if (link->id >= LPASS_MAX_PORT) {
+		dev_err(dev, "%s: Invalid cpu dai id %d\n", link->name, link->id);
+		return -EINVAL;
+	}
+
+	if (platform) {
+		link->platforms->of_node = of_parse_phandle(platform,
+				"sound-dai",
+				0);
+		if (!link->platforms->of_node) {
+			dev_err(dev, "%s: platform dai not found\n", link->name);
+			return -EINVAL;
+		}
+	} else {
+		link->platforms->of_node = link->cpus->of_node;
+	}
+
+	if (codec) {
+		ret = snd_soc_of_get_dai_link_codecs(dev, codec, link);
+		if (ret < 0) {
+			dev_err_probe(dev, ret,
+				      "%s: codec dai not found\n", link->name);
+			return ret;
+		}
+
+		if (platform) {
+			/* DPCM backend */
+			link->no_pcm = 1;
+			link->ignore_pmdown_time = 1;
+		}
+	} else {
+		/* DPCM frontend */
+		link->codecs	 = &snd_soc_dummy_dlc;
+		link->num_codecs = 1;
+		link->dynamic = 1;
+	}
+
+	if (platform || !codec) {
+		/* DPCM */
+		link->ignore_suspend = 1;
+		link->nonatomic = 1;
+	}
+
+	link->stream_name = link->name;
+
+	return 0;
+}
+
 int qcom_snd_parse_of(struct snd_soc_card *card)
 {
 	struct device *dev = card->dev;
 	struct snd_soc_dai_link *link;
-	struct of_phandle_args args;
-	struct snd_soc_dai_link_component *dlc;
 	int ret, num_links;
 
 	ret = snd_soc_of_parse_card_name(card, "model");
@@ -233,88 +325,32 @@ int qcom_snd_parse_of(struct snd_soc_card *card)
 	card->num_links = num_links;
 	link = card->dai_link;
 
+	/* Register frontends first so q6routing can resolve BE targets. */
 	for_each_available_child_of_node_scoped(dev->of_node, np) {
-		dlc = devm_kcalloc(dev, 2, sizeof(*dlc), GFP_KERNEL);
-		if (!dlc)
-			return -ENOMEM;
-
-		link->cpus	= &dlc[0];
-		link->platforms	= &dlc[1];
-
-		link->num_cpus		= 1;
-		link->num_platforms	= 1;
-
-		ret = of_property_read_string(np, "link-name", &link->name);
-		if (ret) {
-			dev_err(dev, "error getting codec dai_link name\n");
-			return ret;
-		}
-
-		struct device_node *cpu __free(device_node) =
-			of_get_child_by_name(np, "cpu");
-		struct device_node *platform __free(device_node) =
-			of_get_child_by_name(np, "platform");
 		struct device_node *codec __free(device_node) =
 			of_get_child_by_name(np, "codec");
 
-		if (!cpu) {
-			dev_err(dev, "%s: Can't find cpu DT node\n", link->name);
-			return -EINVAL;
-		}
+		if (codec)
+			continue;
 
-		ret = snd_soc_of_get_dlc(cpu, &args, link->cpus, 0);
-		if (ret) {
-			dev_err_probe(dev, ret,
-				      "%s: error getting cpu dai name\n", link->name);
+		ret = qcom_snd_setup_dai_link(card, link, np);
+		if (ret)
 			return ret;
-		}
 
-		link->id = args.args[0];
+		link++;
+	}
 
-		if (link->id >= LPASS_MAX_PORT) {
-			dev_err(dev, "%s: Invalid cpu dai id %d\n", link->name, link->id);
-			return -EINVAL;
-		}
+	for_each_available_child_of_node_scoped(dev->of_node, np) {
+		struct device_node *codec __free(device_node) =
+			of_get_child_by_name(np, "codec");
 
-		if (platform) {
-			link->platforms->of_node = of_parse_phandle(platform,
-					"sound-dai",
-					0);
-			if (!link->platforms->of_node) {
-				dev_err(dev, "%s: platform dai not found\n", link->name);
-				return -EINVAL;
-			}
-		} else {
-			link->platforms->of_node = link->cpus->of_node;
-		}
+		if (!codec)
+			continue;
 
-		if (codec) {
-			ret = snd_soc_of_get_dai_link_codecs(dev, codec, link);
-			if (ret < 0) {
-				dev_err_probe(dev, ret,
-					      "%s: codec dai not found\n", link->name);
-				return ret;
-			}
+		ret = qcom_snd_setup_dai_link(card, link, np);
+		if (ret)
+			return ret;
 
-			if (platform) {
-				/* DPCM backend */
-				link->no_pcm = 1;
-				link->ignore_pmdown_time = 1;
-			}
-		} else {
-			/* DPCM frontend */
-			link->codecs	 = &snd_soc_dummy_dlc;
-			link->num_codecs = 1;
-			link->dynamic = 1;
-		}
-
-		if (platform || !codec) {
-			/* DPCM */
-			link->ignore_suspend = 1;
-			link->nonatomic = 1;
-		}
-
-		link->stream_name = link->name;
 		link++;
 	}
 
