@@ -29,7 +29,7 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
-	clocks {
+	clocks: clocks {
 		xo_board_clk: xo-board-clk {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
