@@ -6,7 +6,6 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/gpio/gpio.h>
 #include "qrb2210-arduino-imola-carrier-media-common.dtsi"
 
 &camss {
@@ -33,8 +32,6 @@
 		VDIG-supply = <&cam_pwr_csi0>;
 		VANA-supply = <&cam_pwr_csi0>;
 		VDDL-supply = <&cam_pwr_csi0>;
-
-		reset-gpios = <&pca9555 0 GPIO_ACTIVE_HIGH>;
 
 		port {
 			/* MIPI CSI-2 bus endpoint */
