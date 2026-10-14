@@ -216,6 +216,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-media-camera-imx219-csi
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-media-panel-10in_touch_a-dsi.dtbo
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-media-panel-8in_touch_a-dsi.dtbo
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-media-panel-5in_touch_a-dsi.dtbo
+dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-carrier-panel-5in.dtbo
 dtb-$(CONFIG_ARCH_QCOM)	+= qrb2210-arduino-imola-video_sound-usbc.dtbo
 
 qrb2210-arduino-imola-dtbs := qrb2210-arduino-imola-base.dtb qrb2210-arduino-imola-video_sound-usbc.dtbo
