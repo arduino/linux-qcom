@@ -59,6 +59,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= mahua-crd.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= milos-fairphone-fp6.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= milos-nothing-asteroids.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza.dtb
+dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-carrier-panel-8in.dtbo
 
 monaco-arduino-monza-camera-dtbs	:= monaco-arduino-monza.dtb monaco-arduino-monza-camera.dtbo
 dtb-$(CONFIG_ARCH_QCOM)	+= monaco-arduino-monza-camera.dtb
