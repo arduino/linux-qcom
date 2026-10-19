@@ -1125,12 +1125,13 @@ static int qcom_pcie_config_sid_1_9_0(struct qcom_pcie *pcie)
 		u32 phandle;
 		u32 smmu_sid;
 		u32 smmu_sid_len;
-	} *map;
+	} *map, *entry;
 	void __iomem *bdf_to_sid_base = pcie->parf + PARF_BDF_TO_SID_TABLE_N;
 	struct device *dev = pcie->pci->dev;
 	u8 qcom_pcie_crc8_table[CRC8_TABLE_SIZE];
+	struct device_node *smmu_np;
 	int i, nr_map, size = 0;
-	u32 smmu_sid_base;
+	u32 smmu_sid_base, cells = 1, stride;
 	u32 val;
 
 	of_get_property(dev->of_node, "iommu-map", &size);
@@ -1149,7 +1150,19 @@ static int qcom_pcie_config_sid_1_9_0(struct qcom_pcie *pcie)
 	of_property_read_u32_array(dev->of_node, "iommu-map", (u32 *)map,
 				   size / sizeof(u32));
 
-	nr_map = size / (sizeof(*map));
+	smmu_np = of_find_node_by_phandle(map[0].phandle);
+	of_property_read_u32(smmu_np, "#iommu-cells", &cells);
+	of_node_put(smmu_np);
+
+	/* Entries are <bdf phandle sid [mask] len>, with of_map_id()'s legacy fallback */
+	stride = 3 + cells;
+	if (cells == 2 && !(size % sizeof(*map))) {
+		stride = 4;
+		for (i = 0; i < size / sizeof(*map); i++)
+			if (map[i].phandle != map[0].phandle || map[i].smmu_sid_len != 1)
+				stride = 5;
+	}
+	nr_map = size / (stride * sizeof(u32));
 
 	crc8_populate_msb(qcom_pcie_crc8_table, QCOM_PCIE_CRC8_POLYNOMIAL);
 
@@ -1161,9 +1174,12 @@ static int qcom_pcie_config_sid_1_9_0(struct qcom_pcie *pcie)
 
 	/* Look for an available entry to hold the mapping */
 	for (i = 0; i < nr_map; i++) {
-		__be16 bdf_be = cpu_to_be16(map[i].bdf);
+		__be16 bdf_be;
 		u32 val;
 		u8 hash;
+
+		entry = (void *)map + i * stride * sizeof(u32);
+		bdf_be = cpu_to_be16(entry->bdf);
 
 		hash = crc8(qcom_pcie_crc8_table, (u8 *)&bdf_be, sizeof(bdf_be), 0);
 
@@ -1184,7 +1200,7 @@ static int qcom_pcie_config_sid_1_9_0(struct qcom_pcie *pcie)
 		}
 
 		/* BDF [31:16] | SID [15:8] | NEXT [7:0] */
-		val = map[i].bdf << 16 | (map[i].smmu_sid - smmu_sid_base) << 8 | 0;
+		val = entry->bdf << 16 | (entry->smmu_sid - smmu_sid_base) << 8 | 0;
 		writel(val, bdf_to_sid_base + hash * sizeof(u32));
 	}
 
