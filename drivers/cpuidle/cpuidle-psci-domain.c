@@ -113,8 +113,19 @@ static void psci_pd_remove(void)
 		of_genpd_del_provider(pd_provider->node);
 
 		genpd = of_genpd_remove_last(pd_provider->node);
-		if (!IS_ERR(genpd))
+		if (!IS_ERR(genpd)) {
+			/*
+			 * The lifetime of @genpd is under our control.
+			 * However, it embeds a refcounted struct device that
+			 * may still be referenced by consumers. fw_devlink
+			 * consumers release their references asynchronously
+			 * via device_link_wq, so flush that work before
+			 * freeing the domain. Otherwise, a pending
+			 * kobject_put() may access freed memory.
+			 */
+			device_link_wait_removal();
 			kfree(genpd);
+		}
 
 		of_node_put(pd_provider->node);
 		list_del(&pd_provider->link);
